@@ -19,15 +19,14 @@ Funcionalidades implementadas
 * [x]	Espesor configurable para Avance
 * [x]	Conversión automática de pulgadas a metros
 * [x]	FARC fijo en 0.90
-* [x]	Rebote fijo en 1.10
-* [x]	Rugosidad fija en 1.16
-* [x]	Cálculo de volumen según contrato
+* [x]	Cálculo por rendimientos (m²/m³) según espesor
+* [x]	Rendimientos editables y guardados en el dispositivo
+* [x]	Restablecer rendimientos por defecto
 * [x]	Cálculo de SH 1”
 * [x]	Cálculo de SH 2”
 * [x]	Cálculo de M³ Labor 1”
 * [x]	Cálculo de M³ Labor 2”
 * [x]	Cálculo de calibradores
-* [x]	Área mostrada en Avance ajustada por FARC sin alterar las fórmulas dependientes
 * [x]	Generación de reportes PDF
 * [x]	Copiar reporte
 * [x]	Compartir PDF
@@ -44,66 +43,43 @@ Funcionalidades implementadas
 
 Fórmulas vigentes
 
-Avance
+Método: Volumen = Área / Rendimiento (m²/m³)
 
-Perímetro
+Rendimientos por defecto (editables en la app), definidos a partir de los parámetros de contrato:
+Sobreespesor 10 %, Rugosidad 32 %, Rebote 7 %, Pérdidas operativas 10 %
+(factor acumulado 1.10 × 1.32 × 1.07 × 1.10 ≈ 1.709).
 
-P = 2H + A
-
-Área mostrada
-
-Área = P × L × FARC
-
-con:
+* 1" → 17
+* 1.5" → 14
+* 2" → 11.5
+* 3" → 7.6
+* 4" → 5.7
 
 FARC = 0.90
 
-El área mostrada es únicamente un dato de presentación y no reemplaza las variables utilizadas directamente por las demás fórmulas.
+Avance
 
-Volumen base
-
-V_base = Rb × R × e × L × P × FARC
-
-donde:
-
-* Rb = 1.10
-* R = 1.16
-* FARC = 0.90
-* e = espesor seleccionado convertido de pulgadas a metros
-
-Volumen según contrato
-
-V_contrato = V_base + 0.20
-
-Sacrificio 1”
-
-SH_1 = [2(H − 1.5) + 2A] × Rb × R × FARC × 0.0254
-
-Sacrificio 2”
-
-SH_2 = [2(H − 1.5) + 2A] × Rb × R × FARC × 0.0508
-
-M³ Labor 1”
-
-M³ Labor 1 = V_base + SH_1
-
-M³ Labor 2”
-
-M³ Labor 2 = V_base + SH_2
+P = (2H + A) × FARC
+Área = P × L
+V_base = Área / Rendimiento(espesor)
+SH_1 = max(H − 1.5, 0) × A × FARC / Rendimiento(1")
+SH_2 = max(H − 1.5, 0) × A × FARC / Rendimiento(2")
+M³ Labor 1" = V_base + SH_1
+M³ Labor 2" = V_base + SH_2
+Calibradores = round((H − 1) × 4) si H > 4.2; ceil(P − 1) × 2 en otro caso
 
 Resane
 
+P = 2H
 Área = H × L
-
-Volumen resane = Área / 11.5
+Volumen resane = Área / Rendimiento(2")
+Calibradores = Filas × ceil(max(L − 1, 0)), con Filas = 1 si H < 1.9; floor(H) en otro caso
 
 Malla
 
 P = (2H + A) × FARC
-
-Área = L × P
-
-Volumen malla = Área / 21
+Área = P × L
+Volumen malla = Área / Rendimiento(espesor)
 
 Próxima etapa — Android
 
@@ -126,5 +102,7 @@ Compatibilidad futura
 Mantenimiento futuro
 
 * [ ]	Agregar pruebas automáticas de las fórmulas
+* [ ]	Revisar los rendimientos de 1" y 1.5" frente al factor de contrato (1.709)
+* [ ]	Mostrar en el PDF los rendimientos usados en el cálculo
 * [ ]	Refactorizar componentes grandes cuando la aplicación esté estable
 * [ ]	Mejorar textos de las páginas de error

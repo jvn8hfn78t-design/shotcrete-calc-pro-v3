@@ -31,19 +31,43 @@ Todos los modos permiten registrar, para el reporte:
 | A – Ancho | 0.5 m | 20 m |
 | L – Avance | 0.1 m | 50 m |
 
-### Espesor y rendimientos
+### Método de cálculo: rendimientos
 
-En Avance y Malla se selecciona el espesor (1", 1.5", 2", 3" o 4"). Cada espesor tiene un **rendimiento** en m² por m³ de shotcrete:
+En Avance y Malla se selecciona el espesor (1", 1.5", 2", 3" o 4"). El volumen se obtiene dividiendo el área a proyectar entre el rendimiento del espesor:
 
-| Espesor | Rendimiento por defecto |
+```
+Volumen (m³) = Área (m²) / Rendimiento (m²/m³)
+```
+
+**Origen de los rendimientos.** El rendimiento teórico de un espesor `e` es `1 / e` (m²/m³), con `e` en metros (1" = 0.0254 m). Se reduce por los parámetros de contrato:
+
+| Parámetro | Variación |
 | --- | --- |
-| 1" | 17 m²/m³ |
-| 1.5" | 14 m²/m³ |
-| 2" | 11.5 m²/m³ |
-| 3" | 7.6 m²/m³ |
-| 4" | 5.7 m²/m³ |
+| Sobreespesor | 10 % |
+| Rugosidad | 32 % |
+| Rebote | 7 % |
+| Pérdidas operativas | 10 % |
 
-Los rendimientos se pueden modificar desde el menú **⋮ → Rendimientos**. Los cambios se guardan en el dispositivo (`localStorage`, clave `shotcrete-calc-pro-v2-rendimientos`) y se pueden **restablecer** a los valores por defecto. Los valores por defecto están definidos en `DEFAULT_RENDIMIENTOS_SHOTCRETE` dentro de `src/components/ShotcreteCalculator.tsx`.
+```
+Factor total = 1.10 × 1.32 × 1.07 × 1.10 ≈ 1.709
+Rendimiento  = (1 / e) / 1.709
+```
+
+**Rendimientos por defecto:**
+
+| Espesor | Teórico (m²/m³) | En la app (m²/m³) |
+| --- | --- | --- |
+| 1" | 39.37 | 17 |
+| 1.5" | 26.25 | 14 |
+| 2" | 19.69 | 11.5 |
+| 3" | 13.12 | 7.6 |
+| 4" | 9.84 | 5.7 |
+
+Los de 2", 3" y 4" corresponden aproximadamente al factor acumulado de 1.709. Los de 1" y 1.5" son más conservadores (factor implícito de ≈ 2.32 y ≈ 1.88), porque en espesores delgados la rugosidad y las pérdidas pesan proporcionalmente más.
+
+**Rendimientos editables.** Se están ajustando en campo, por eso se pueden modificar desde el menú **⋮ → Rendimientos**. Los cambios se guardan en el dispositivo (`localStorage`, clave `shotcrete-calc-pro-v2-rendimientos`) y se pueden **restablecer** a los valores por defecto, definidos en `DEFAULT_RENDIMIENTOS_SHOTCRETE` (`src/components/ShotcreteCalculator.tsx`).
+
+> Cada dispositivo guarda sus propios rendimientos: dos equipos con valores distintos darán resultados distintos para las mismas dimensiones. Mostrar los rendimientos usados en el PDF está pendiente (ver `roadmap.md`).
 
 ---
 
