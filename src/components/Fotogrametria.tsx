@@ -1,5 +1,9 @@
-
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import {
+  guardarLevantamiento,
+  obtenerLevantamiento,
+  type LevantamientoGuardado,
+} from "@/lib/fotogrametria-store";
 import {
   Camera,
   ImagePlus,
@@ -28,7 +32,161 @@ export function Fotogrametria() {
   const [unit, setUnit] = useState("cm");
   const [scaleDescription, setScaleDescription] = useState("");
   const [photos, setPhotos] = useState<Photo[]>([]);
+  const [datosCargados, setDatosCargados] = useState(false);
 
+  const [estadoGuardado, setEstadoGuardado] = useState<
+    "cargando" | "guardando" | "guardado" | "error"
+  >("cargando");
+
+  const fotosRef = useRef<Photo[]>([]);
+  const colaGuardadoRef = useRef<Promise<void>>(Promise.resolve());
+
+  const levantamientoRef = useRef<LevantamientoGuardado | null>(null);
+  const datosListosRef = useRef(false);
+
+  fotosRef.current = photos;
+    const encolarGuardado = (
+    levantamiento: LevantamientoGuardado,
+    actualizarEstado = true,
+  ) => {
+    colaGuardadoRef.current = colaGuardadoRef.current
+      .catch(() => undefined)
+      .then(() => guardarLevantamiento(levantamiento))
+      .then(() => {
+        if (actualizarEstado) {
+          setEstadoGuardado("guardado");
+        }
+      })
+      .catch(error => {
+        console.error("Error al guardar fotogrametría:", error);
+
+        if (actualizarEstado) {
+          setEstadoGuardado("error");
+        }
+      });
+
+    return colaGuardadoRef.current;
+  };
+    useEffect(() => {
+    let activo = true;
+
+    const cargar = async () => {
+      try {
+        const guardado = await obtenerLevantamiento();
+
+        if (!activo) return;
+
+        if (guardado) {
+          setLabor(guardado.labor);
+          setNivel(guardado.nivel);
+          setZona(guardado.zona);
+          setScale(guardado.escala);
+          setUnit(guardado.unidad);
+          setScaleDescription(guardado.descripcionEscala);
+
+          const fotosRecuperadas: Photo[] = guardado.fotos.map(foto => {
+            const file = new File([foto.blob], foto.nombre, {
+              type: foto.tipo,
+            });
+
+            return {
+              id: foto.id,
+              file,
+              preview: URL.createObjectURL(foto.blob),
+            };
+          });
+
+          setPhotos(fotosRecuperadas);
+        }
+
+        setEstadoGuardado("guardado");
+      } catch (error) {
+        console.error("Error al recuperar fotogrametría:", error);
+        setEstadoGuardado("error");
+      } finally {
+        if (activo) {
+          datosListosRef.current = true;
+          setDatosCargados(true);
+        }
+      }
+    };
+
+    void cargar();
+
+    return () => {
+      activo = false;
+    };
+  }, []);
+    useEffect(() => {
+    if (!datosCargados) return;
+
+    levantamientoRef.current = {
+      id: "levantamiento-actual",
+      labor,
+      nivel,
+      zona,
+      escala: scale,
+      unidad: unit,
+      descripcionEscala: scaleDescription,
+      fotos: photos.map(photo => ({
+        id: photo.id,
+        nombre: photo.file.name,
+        tipo: photo.file.type,
+        blob: photo.file,
+      })),
+      actualizadoEn: new Date().toISOString(),
+    };
+  }, [
+    datosCargados,
+    labor,
+    nivel,
+    zona,
+    scale,
+    unit,
+    scaleDescription,
+    photos,
+  ]);
+    useEffect(() => {
+    if (!datosCargados) return;
+
+    setEstadoGuardado("guardando");
+
+    const temporizador = window.setTimeout(() => {
+      const levantamiento = levantamientoRef.current;
+
+      if (levantamiento) {
+        void encolarGuardado(levantamiento);
+      }
+    }, 600);
+
+    return () => {
+      window.clearTimeout(temporizador);
+    };
+  }, [
+    datosCargados,
+    labor,
+    nivel,
+    zona,
+    scale,
+    unit,
+    scaleDescription,
+    photos,
+  ]);
+    useEffect(() => {
+    return () => {
+      if (!datosListosRef.current) return;
+
+      const ultimoLevantamiento = levantamientoRef.current;
+
+      if (ultimoLevantamiento) {
+        void encolarGuardado(ultimoLevantamiento, false);
+      }
+
+      fotosRef.current.forEach(photo => {
+        URL.revokeObjectURL(photo.preview);
+      });
+    };
+  }, []);
   const addPhotos = (files: FileList | null) => {
     if (!files) return;
 
@@ -79,6 +237,13 @@ export function Fotogrametria() {
         <p className="text-sm text-muted-foreground">
           Levantamiento fotográfico para reconstrucción tridimensional
           y cubicación con geometría real.
+        </p>
+                <p className="text-xs font-semibold text-muted-foreground">
+          {estadoGuardado === "cargando" && "Recuperando levantamiento..."}
+          {estadoGuardado === "guardando" && "Guardando datos y fotografías..."}
+          {estadoGuardado === "guardado" && "✓ Datos guardados en este dispositivo"}
+          {estadoGuardado === "error" &&
+            "No se pudo guardar. Revisa el almacenamiento del dispositivo."}
         </p>
       </header>
 
