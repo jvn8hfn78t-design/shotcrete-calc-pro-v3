@@ -3,6 +3,7 @@ import {
   guardarLevantamiento,
   obtenerLevantamiento,
   type LevantamientoGuardado,
+  type EstacionGuardada,
 } from "@/lib/fotogrametria-store";
 import {
   Camera,
@@ -19,7 +20,36 @@ type Photo = {
   file: File;
 };
 
+
 const MAX_PHOTOS = 30;
+const DISTANCIA_MAXIMA_ESTACIONES = 2.5;
+
+function proponerEstaciones(longitud: number): EstacionGuardada[] {
+  if (!Number.isFinite(longitud) || longitud <= 0) {
+    return [];
+  }
+
+  const cantidadIntervalos = Math.ceil(
+    longitud / DISTANCIA_MAXIMA_ESTACIONES,
+  );
+
+  return Array.from({ length: cantidadIntervalos + 1 }, (_, index) => {
+    const progresiva = Number(
+      ((longitud * index) / cantidadIntervalos).toFixed(2),
+    );
+
+    return {
+      id: `estacion-${index + 1}`,
+      nombre:
+        index === 0
+          ? "Inicio"
+          : index === cantidadIntervalos
+            ? "Final"
+            : `Estación ${index}`,
+      progresiva,
+    };
+  });
+}
 
 export function Fotogrametria() {
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -28,6 +58,8 @@ export function Fotogrametria() {
   const [labor, setLabor] = useState("");
   const [nivel, setNivel] = useState("");
   const [zona, setZona] = useState("");
+  const [longitudMetros, setLongitudMetros] = useState("");
+  const [estaciones, setEstaciones] = useState<EstacionGuardada[]>([]);
   const [scale, setScale] = useState("");
   const [unit, setUnit] = useState("cm");
   const [scaleDescription, setScaleDescription] = useState("");
@@ -77,9 +109,25 @@ export function Fotogrametria() {
         if (!activo) return;
 
         if (guardado) {
-          setLabor(guardado.labor);
+                    setLabor(guardado.labor);
           setNivel(guardado.nivel);
           setZona(guardado.zona);
+
+          const longitudGuardada = guardado.longitudMetros;
+
+          setLongitudMetros(
+            longitudGuardada !== undefined
+              ? String(longitudGuardada)
+              : "",
+          );
+
+          setEstaciones(
+            guardado.estaciones ??
+              (longitudGuardada
+                ? proponerEstaciones(longitudGuardada)
+                : []),
+          );
+
           setScale(guardado.escala);
           setUnit(guardado.unidad);
           setScaleDescription(guardado.descripcionEscala);
@@ -120,11 +168,19 @@ export function Fotogrametria() {
     useEffect(() => {
     if (!datosCargados) return;
 
-    levantamientoRef.current = {
+        levantamientoRef.current = {
       id: "levantamiento-actual",
       labor,
       nivel,
       zona,
+      tipoLevantamiento: "antes",
+      longitudMetros:
+        longitudMetros.trim() !== "" &&
+        Number.isFinite(Number(longitudMetros)) &&
+        Number(longitudMetros) > 0
+          ? Number(longitudMetros)
+          : undefined,
+      estaciones,
       escala: scale,
       unidad: unit,
       descripcionEscala: scaleDescription,
@@ -141,6 +197,8 @@ export function Fotogrametria() {
     labor,
     nivel,
     zona,
+    longitudMetros,
+    estaciones,
     scale,
     unit,
     scaleDescription,
@@ -167,6 +225,8 @@ export function Fotogrametria() {
     labor,
     nivel,
     zona,
+    longitudMetros,
+    estaciones,
     scale,
     unit,
     scaleDescription,
@@ -293,6 +353,84 @@ export function Fotogrametria() {
         </div>
       </section>
 
+      <section className="space-y-4 rounded-xl border border-border bg-card p-4 sm:p-6">
+        <h3 className="font-bold uppercase">
+          2. Longitud y estaciones de control
+        </h3>
+
+        <p className="text-sm text-muted-foreground">
+          Registra la longitud de la labor. La aplicación propondrá
+          estaciones de control desde el inicio hasta el tope.
+        </p>
+
+        <label className="block max-w-sm space-y-1">
+          <span className="text-xs font-semibold">
+            Longitud total de la labor (metros)
+          </span>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={longitudMetros}
+            onChange={e => {
+              const valor = e.target.value;
+              setLongitudMetros(valor);
+
+              const longitud = Number(valor);
+
+              setEstaciones(
+                valor.trim() !== "" &&
+                  Number.isFinite(longitud) &&
+                  longitud > 0
+                  ? proponerEstaciones(longitud)
+                  : [],
+              );
+            }}
+            placeholder="Ej. 3.80"
+            className="h-11 w-full rounded-lg border border-input bg-background px-3"
+          />
+        </label>
+
+        <div className="rounded-lg border border-border p-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-bold">
+              Estaciones propuestas
+            </p>
+            <span className="text-xs font-semibold text-muted-foreground">
+              {estaciones.length} puntos
+            </span>
+          </div>
+
+          {estaciones.length === 0 ? (
+            <p className="mt-3 text-sm text-muted-foreground">
+              Ingresa una longitud válida para generar las estaciones.
+            </p>
+          ) : (
+            <div className="mt-3 space-y-2">
+              {estaciones.map(estacion => (
+                <div
+                  key={estacion.id}
+                  className="flex items-center justify-between rounded-lg bg-secondary/60 px-3 py-2"
+                >
+                  <span className="text-sm font-semibold">
+                    {estacion.nombre}
+                  </span>
+                  <span className="text-sm font-bold tabular-nums">
+                    {estacion.progresiva.toFixed(2)} m
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <p className="text-xs text-muted-foreground">
+          La distribución es automática y utiliza intervalos máximos
+          aproximados de 2.5 metros. Las estaciones son referencias
+          de control para el levantamiento, no reemplazan el recorrido
+          fotográfico continuo.
+        </p>
+      </section>
       <section className="space-y-4 rounded-xl border border-border bg-card p-4 sm:p-6">
         <div className="flex items-center justify-between">
           <h3 className="font-bold uppercase">2. Fotografías</h3>
