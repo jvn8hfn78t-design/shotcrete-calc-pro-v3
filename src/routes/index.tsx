@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Calculator, HardHat } from "lucide-react";
+import { useState } from "react";
+import { Calculator, HardHat, ScanLine } from "lucide-react";
 import { ShotcreteCalculator } from "@/components/ShotcreteCalculator";
+import { Fotogrametria } from "@/components/Fotogrametria";
 import { InstallButton } from "@/components/Pwa";
 import heroTunnel from "@/assets/hero-tunnel.jpg";
 
@@ -28,6 +30,8 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
+  const [moduloActivo, setModuloActivo] = useState<"calculadora" | "fotogrametria">("calculadora");
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* CARÁTULA */}
@@ -139,12 +143,46 @@ function Index() {
         </div>
       </section>
 
-      {/* CALCULADORA */}
+           {/* MÓDULOS PRINCIPALES */}
       <section
         id="calculadora"
         className="mx-auto max-w-6xl scroll-mt-4 px-4 py-8 sm:py-14"
       >
-        <ShotcreteCalculator />
+        {/* Selector de módulos */}
+        <div className="mb-8 grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => setModuloActivo("calculadora")}
+            className={`flex min-h-14 items-center justify-center gap-2 rounded-lg border px-3 py-3 text-xs font-bold uppercase transition-colors sm:text-sm ${
+              moduloActivo === "calculadora"
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-card text-muted-foreground hover:border-primary"
+            }`}
+          >
+            <Calculator className="size-5" />
+            Calculadora
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setModuloActivo("fotogrametria")}
+            className={`flex min-h-14 items-center justify-center gap-2 rounded-lg border px-3 py-3 text-xs font-bold uppercase transition-colors sm:text-sm ${
+              moduloActivo === "fotogrametria"
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-card text-muted-foreground hover:border-primary"
+            }`}
+          >
+            <ScanLine className="size-5" />
+            Fotogrametría
+          </button>
+        </div>
+
+        {/* Contenido del módulo seleccionado */}
+        {moduloActivo === "calculadora" ? (
+          <ShotcreteCalculator />
+        ) : (
+          <Fotogrametria />
+        )}
       </section>
     </div>
   );
