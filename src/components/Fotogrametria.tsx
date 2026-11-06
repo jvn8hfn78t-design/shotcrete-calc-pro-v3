@@ -135,19 +135,20 @@ export function Fotogrametria() {
           setScaleDescription(guardado.descripcionEscala);
 
           const fotosRecuperadas: Photo[] = guardado.fotos.map(foto => {
-            const file = new File([foto.blob], foto.nombre, {
-              type: foto.tipo,
-            });
+  const file = new File([foto.blob], foto.nombre, {
+    type: foto.tipo,
+  });
 
-            return {
-  id: foto.id,
-  file,
-  preview: URL.createObjectURL(foto.blob),
-  grupoCaptura: foto.grupoCaptura ?? "recorrido",
-  estacionId: foto.estacionId,
-};
+  return {
+    id: foto.id,
+    file,
+    preview: URL.createObjectURL(foto.blob),
+    grupoCaptura: foto.grupoCaptura ?? "recorrido",
+    estacionId: foto.estacionId,
+  };
+});
 
-          setPhotos(fotosRecuperadas);
+setPhotos(fotosRecuperadas);
         }
 
         setEstadoGuardado("guardado");
