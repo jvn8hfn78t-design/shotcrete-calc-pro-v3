@@ -4,11 +4,25 @@ const DB_VERSION = 1;
 const STORE_NAME = "levantamientos";
 const DRAFT_KEY = "levantamiento-actual";
 
+export type GrupoCaptura =
+  | "recorrido"
+  | "estacion"
+  | "sacrificio";
+
 export type FotoGuardada = {
   id: string;
   nombre: string;
   tipo: string;
   blob: Blob;
+  grupoCaptura?: GrupoCaptura;
+  estacionId?: string;
+};
+
+export type EstacionGuardada = {
+  id: string;
+  nombre: string;
+  progresiva: number;
+  observacion?: string;
 };
 
 export type LevantamientoGuardado = {
@@ -19,6 +33,11 @@ export type LevantamientoGuardado = {
   escala: string;
   unidad: string;
   descripcionEscala: string;
+
+  tipoLevantamiento?: "antes" | "despues";
+  longitudMetros?: number;
+  estaciones?: EstacionGuardada[];
+
   fotos: FotoGuardada[];
   actualizadoEn: string;
 };
