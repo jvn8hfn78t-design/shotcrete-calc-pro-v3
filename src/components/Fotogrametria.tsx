@@ -433,7 +433,7 @@ export function Fotogrametria() {
       </section>
       <section className="space-y-4 rounded-xl border border-border bg-card p-4 sm:p-6">
         <div className="flex items-center justify-between">
-          <h3 className="font-bold uppercase">2. Fotografías</h3>
+          <h3 className="font-bold uppercase">3. Fotografías</h3>
           <span className="text-xs font-semibold text-muted-foreground">
             {photos.length}/{MAX_PHOTOS}
           </span>
@@ -521,7 +521,7 @@ export function Fotogrametria() {
       <section className="space-y-4 rounded-xl border border-border bg-card p-4 sm:p-6">
         <h3 className="flex items-center gap-2 font-bold uppercase">
           <Ruler className="size-5 text-primary" />
-          3. Referencia de escala
+          4. Referencia de escala
         </h3>
 
         <p className="text-sm text-muted-foreground">
