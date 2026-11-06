@@ -4,6 +4,7 @@ import {
   obtenerLevantamiento,
   type LevantamientoGuardado,
   type EstacionGuardada,
+  type GrupoCaptura,
 } from "@/lib/fotogrametria-store";
 import {
   Camera,
@@ -18,8 +19,9 @@ type Photo = {
   id: string;
   preview: string;
   file: File;
+  grupoCaptura?: GrupoCaptura;
+  estacionId?: string;
 };
-
 
 const MAX_PHOTOS = 30;
 const DISTANCIA_MAXIMA_ESTACIONES = 2.5;
@@ -138,11 +140,12 @@ export function Fotogrametria() {
             });
 
             return {
-              id: foto.id,
-              file,
-              preview: URL.createObjectURL(foto.blob),
-            };
-          });
+  id: foto.id,
+  file,
+  preview: URL.createObjectURL(foto.blob),
+  grupoCaptura: foto.grupoCaptura ?? "recorrido",
+  estacionId: foto.estacionId,
+};
 
           setPhotos(fotosRecuperadas);
         }
@@ -185,11 +188,13 @@ export function Fotogrametria() {
       unidad: unit,
       descripcionEscala: scaleDescription,
       fotos: photos.map(photo => ({
-        id: photo.id,
-        nombre: photo.file.name,
-        tipo: photo.file.type,
-        blob: photo.file,
-      })),
+  id: photo.id,
+  nombre: photo.file.name,
+  tipo: photo.file.type,
+  blob: photo.file,
+  grupoCaptura: photo.grupoCaptura ?? "recorrido",
+  estacionId: photo.estacionId,
+})),
       actualizadoEn: new Date().toISOString(),
     };
   }, [
