@@ -719,62 +719,87 @@ const addPhotos = (files: FileList | null) => {
     </p>
   </div>
 
-  <div className="grid gap-3 sm:grid-cols-2">
-    <div className="rounded-lg border border-border bg-background p-3">
-      <p className="text-xs text-muted-foreground">
-        Identificación
-      </p>
-      <p className="font-semibold">
-        {labor.trim() !== "" && nivel.trim() !== ""
-          ? "Completa"
-          : "Pendiente"}
-      </p>
-      <p className="text-xs text-muted-foreground">
-        Labor y nivel
-      </p>
-    </div>
-
-    <div className="rounded-lg border border-border bg-background p-3">
-      <p className="text-xs text-muted-foreground">
-        Longitud de labor
-      </p>
-      <p className="font-semibold">
-        {longitudMetros.trim() !== "" &&
-        Number.isFinite(Number(longitudMetros)) &&
-        Number(longitudMetros) > 0
-          ? `${Number(longitudMetros).toFixed(2)} m`
-          : "Pendiente"}
-      </p>
-    </div>
-
-    <div className="rounded-lg border border-border bg-background p-3">
-      <p className="text-xs text-muted-foreground">
-        Referencia de escala
-      </p>
-      <p className="font-semibold">
-        {scale.trim() !== "" &&
-        Number.isFinite(Number(scale)) &&
-        Number(scale) > 0 &&
-        scaleDescription.trim() !== ""
-          ? "Completa"
-          : "Pendiente"}
-      </p>
-      <p className="text-xs text-muted-foreground">
-        Dimensión conocida y descripción
-      </p>
-    </div>
-
-    <div className="rounded-lg border border-border bg-background p-3">
-      <p className="text-xs text-muted-foreground">
-        Fotografías
-      </p>
-      <p className="font-semibold">
-        {photos.length > 0
-          ? `${photos.length} agregadas`
-          : "Pendiente"}
-      </p>
-    </div>
+<div className="grid gap-3 sm:grid-cols-2">
+  <div className="rounded-lg border border-border bg-background p-3">
+    <p className="text-xs text-muted-foreground">
+      Identificación
+    </p>
+    <p className="font-semibold">
+      {labor.trim() !== "" && nivel.trim() !== ""
+        ? "Completa"
+        : "Pendiente"}
+    </p>
+    <p className="text-xs text-muted-foreground">
+      Labor y nivel
+    </p>
   </div>
+
+  <div className="rounded-lg border border-border bg-background p-3">
+    <p className="text-xs text-muted-foreground">
+      Longitud de labor
+    </p>
+    <p className="font-semibold">
+      {longitudMetros.trim() !== "" &&
+      Number.isFinite(Number(longitudMetros)) &&
+      Number(longitudMetros) > 0
+        ? `${Number(longitudMetros).toFixed(2)} m`
+        : "Pendiente"}
+    </p>
+  </div>
+
+  <div className="rounded-lg border border-border bg-background p-3">
+    <p className="text-xs text-muted-foreground">
+      Referencia de escala
+    </p>
+    <p className="font-semibold">
+      {scale.trim() !== "" &&
+      Number.isFinite(Number(scale)) &&
+      Number(scale) > 0 &&
+      scaleDescription.trim() !== ""
+        ? "Completa"
+        : "Pendiente"}
+    </p>
+    <p className="text-xs text-muted-foreground">
+      Dimensión conocida y descripción
+    </p>
+  </div>
+
+  <div className="rounded-lg border border-border bg-background p-3">
+    <p className="text-xs text-muted-foreground">
+      Total de fotografías
+    </p>
+    <p className="font-semibold">
+      {photos.length} / {MAX_PHOTOS}
+    </p>
+  </div>
+
+  <div className="rounded-lg border border-border bg-background p-3">
+    <p className="text-xs text-muted-foreground">
+      Recorrido continuo
+    </p>
+    <p className="font-semibold">
+      {photos.filter(photo => photo.grupoCaptura === "recorrido").length} fotografías
+    </p>
+  </div>
+
+  <div className="rounded-lg border border-border bg-background p-3">
+    <p className="text-xs text-muted-foreground">
+      Estaciones de control
+    </p>
+    <p className="font-semibold">
+      {photos.filter(photo => photo.grupoCaptura === "estacion").length} fotografías
+    </p>
+  </div>
+
+  <div className="rounded-lg border border-border bg-background p-3">
+    <p className="text-xs text-muted-foreground">
+      Sacrificio (tope)
+    </p>
+    <p className="font-semibold">
+      {photos.filter(photo => photo.grupoCaptura === "sacrificio").length} fotografías
+    </p>
+  </div>
+</div>
 
   <div className="rounded-lg border border-border bg-background p-3">
     <p className="text-sm font-bold">
