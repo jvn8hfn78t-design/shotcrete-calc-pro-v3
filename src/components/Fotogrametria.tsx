@@ -62,6 +62,8 @@ export function Fotogrametria() {
   const [zona, setZona] = useState("");
   const [longitudMetros, setLongitudMetros] = useState("");
   const [estaciones, setEstaciones] = useState<EstacionGuardada[]>([]);
+  const [grupoCaptura, setGrupoCaptura] = useState<GrupoCaptura>("recorrido");
+  const [estacionSeleccionada, setEstacionSeleccionada] = useState("");
   const [scale, setScale] = useState("");
   const [unit, setUnit] = useState("cm");
   const [scaleDescription, setScaleDescription] = useState("");
@@ -254,25 +256,30 @@ setPhotos(fotosRecuperadas);
     };
   }, []);
   const addPhotos = (files: FileList | null) => {
-    if (!files) return;
+  if (!files) return;
 
-    const available = MAX_PHOTOS - photos.length;
-    const selected = Array.from(files)
-      .filter(file => file.type.startsWith("image/"))
-      .filter(file => file.size <= 25 * 1024 * 1024)
-      .slice(0, available);
+  const available = MAX_PHOTOS - photos.length;
+  const selected = Array.from(files)
+    .filter(file => file.type.startsWith("image/"))
+    .filter(file => file.size <= 25 * 1024 * 1024)
+    .slice(0, available);
 
-    const newPhotos = selected.map(file => ({
-      id: crypto.randomUUID(),
-      file,
-      preview: URL.createObjectURL(file),
-    }));
+  const newPhotos: Photo[] = selected.map(file => ({
+    id: crypto.randomUUID(),
+    file,
+    preview: URL.createObjectURL(file),
+    grupoCaptura,
+    estacionId:
+      grupoCaptura === "estacion"
+        ? estacionSeleccionada
+        : undefined,
+  }));
 
-    setPhotos(current => [...current, ...newPhotos]);
+  setPhotos(current => [...current, ...newPhotos]);
 
-    if (cameraRef.current) cameraRef.current.value = "";
-    if (galleryRef.current) galleryRef.current.value = "";
-  };
+  if (cameraRef.current) cameraRef.current.value = "";
+  if (galleryRef.current) galleryRef.current.value = "";
+};
 
   const removePhoto = (id: string) => {
     setPhotos(current => {
@@ -446,11 +453,47 @@ setPhotos(fotosRecuperadas);
         </div>
 
         <p className="text-sm text-muted-foreground">
-          Captura fotografías desde diferentes posiciones, manteniendo
-          superposición entre imágenes consecutivas.
-        </p>
+  Selecciona el tipo de captura antes de tomar o elegir las fotografías.
+  Mantén superposición entre imágenes consecutivas.
+</p>
 
-        <div className="grid gap-3 sm:grid-cols-2">
+<div className="grid gap-3 sm:grid-cols-2">
+  <label className="space-y-1">
+    <span className="text-xs font-semibold">Tipo de captura</span>
+    <select
+      value={grupoCaptura}
+      onChange={e => {
+        setGrupoCaptura(e.target.value as GrupoCaptura);
+        setEstacionSeleccionada("");
+      }}
+      className="h-11 w-full rounded-lg border border-input bg-background px-3"
+    >
+      <option value="recorrido">Recorrido continuo</option>
+      <option value="estacion">Estación de control</option>
+      <option value="sacrificio">Sacrificio (tope)</option>
+    </select>
+  </label>
+
+  {grupoCaptura === "estacion" && (
+    <label className="space-y-1">
+      <span className="text-xs font-semibold">Estación</span>
+      <select
+        value={estacionSeleccionada}
+        onChange={e => setEstacionSeleccionada(e.target.value)}
+        className="h-11 w-full rounded-lg border border-input bg-background px-3"
+      >
+        <option value="">Seleccionar estación</option>
+        {estaciones.map(estacion => (
+          <option key={estacion.id} value={estacion.id}>
+            {estacion.nombre} — {estacion.progresiva.toFixed(2)} m
+          </option>
+        ))}
+      </select>
+    </label>
+  )}
+</div>
+
+<div className="grid gap-3 sm:grid-cols-2">
           <button
             type="button"
             onClick={() => cameraRef.current?.click()}
