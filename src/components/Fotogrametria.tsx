@@ -19,8 +19,12 @@ type Photo = {
   id: string;
   preview: string;
   file: File;
+
   grupoCaptura?: GrupoCaptura;
   estacionId?: string;
+
+  fechaRegistro: string;
+  tamanoBytes: number;
 };
 
 const MAX_PHOTOS = 30;
