@@ -667,32 +667,95 @@ const addPhotos = (files: FileList | null) => {
         </p>
       </section>
 
-      <section className="rounded-xl border border-border bg-secondary/50 p-4">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-          Resumen del levantamiento
-        </h3>
+      
+<section className="rounded-xl border border-border bg-secondary/50 p-4 space-y-4">
+  <div>
+    <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+      Validación del levantamiento
+    </h3>
+    <p className="mt-1 text-sm text-muted-foreground">
+      Comprueba que los datos mínimos estén registrados.
+    </p>
+  </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div>
-            <p className="text-xs text-muted-foreground">Labor</p>
-            <p className="font-semibold">{labor || "Pendiente"}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Nivel</p>
-            <p className="font-semibold">{nivel || "Pendiente"}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Fotografías</p>
-            <p className="font-semibold">{photos.length}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Escala</p>
-            <p className="font-semibold">
-              {scale ? `${scale} ${unit}` : "Pendiente"}
-            </p>
-          </div>
-        </div>
-      </section>
+  <div className="grid gap-3 sm:grid-cols-2">
+    <div className="rounded-lg border border-border bg-background p-3">
+      <p className="text-xs text-muted-foreground">
+        Identificación
+      </p>
+      <p className="font-semibold">
+        {labor.trim() !== "" && nivel.trim() !== ""
+          ? "Completa"
+          : "Pendiente"}
+      </p>
+      <p className="text-xs text-muted-foreground">
+        Labor y nivel
+      </p>
+    </div>
+
+    <div className="rounded-lg border border-border bg-background p-3">
+      <p className="text-xs text-muted-foreground">
+        Longitud de labor
+      </p>
+      <p className="font-semibold">
+        {longitudMetros.trim() !== "" &&
+        Number.isFinite(Number(longitudMetros)) &&
+        Number(longitudMetros) > 0
+          ? `${Number(longitudMetros).toFixed(2)} m`
+          : "Pendiente"}
+      </p>
+    </div>
+
+    <div className="rounded-lg border border-border bg-background p-3">
+      <p className="text-xs text-muted-foreground">
+        Referencia de escala
+      </p>
+      <p className="font-semibold">
+        {scale.trim() !== "" &&
+        Number.isFinite(Number(scale)) &&
+        Number(scale) > 0 &&
+        scaleDescription.trim() !== ""
+          ? "Completa"
+          : "Pendiente"}
+      </p>
+      <p className="text-xs text-muted-foreground">
+        Dimensión conocida y descripción
+      </p>
+    </div>
+
+    <div className="rounded-lg border border-border bg-background p-3">
+      <p className="text-xs text-muted-foreground">
+        Fotografías
+      </p>
+      <p className="font-semibold">
+        {photos.length > 0
+          ? `${photos.length} agregadas`
+          : "Pendiente"}
+      </p>
+    </div>
+  </div>
+
+  <div className="rounded-lg border border-border bg-background p-3">
+    <p className="text-sm font-bold">
+      Estado de los datos
+    </p>
+
+    <p className="mt-1 text-sm text-muted-foreground">
+      {labor.trim() !== "" &&
+      nivel.trim() !== "" &&
+      longitudMetros.trim() !== "" &&
+      Number.isFinite(Number(longitudMetros)) &&
+      Number(longitudMetros) > 0 &&
+      scale.trim() !== "" &&
+      Number.isFinite(Number(scale)) &&
+      Number(scale) > 0 &&
+      scaleDescription.trim() !== "" &&
+      photos.length > 0
+        ? "Datos mínimos registrados. El levantamiento todavía requiere validación técnica de las fotografías."
+        : "Faltan datos mínimos para completar el registro del levantamiento."}
+    </p>
+  </div>
+</section>
 
     </div>
   );
