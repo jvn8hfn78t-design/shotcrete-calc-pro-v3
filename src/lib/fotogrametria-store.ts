@@ -14,10 +14,13 @@ export type FotoGuardada = {
   nombre: string;
   tipo: string;
   blob: Blob;
+
   grupoCaptura?: GrupoCaptura;
   estacionId?: string;
-};
 
+  fechaRegistro?: string;
+  tamanoBytes?: number;
+};
 export type EstacionGuardada = {
   id: string;
   nombre: string;
