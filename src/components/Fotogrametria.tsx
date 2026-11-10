@@ -151,6 +151,9 @@ export function Fotogrametria() {
     preview: URL.createObjectURL(foto.blob),
     grupoCaptura: foto.grupoCaptura ?? "recorrido",
     estacionId: foto.estacionId,
+    fechaRegistro:
+      foto.fechaRegistro ?? new Date().toISOString(),
+    tamanoBytes: foto.tamanoBytes ?? foto.blob.size,
   };
 });
 
@@ -201,6 +204,8 @@ setPhotos(fotosRecuperadas);
   blob: photo.file,
   grupoCaptura: photo.grupoCaptura ?? "recorrido",
   estacionId: photo.estacionId,
+  fechaRegistro: photo.fechaRegistro,
+  tamanoBytes: photo.tamanoBytes,
 })),
       actualizadoEn: new Date().toISOString(),
     };
@@ -271,6 +276,7 @@ const addPhotos = (files: FileList | null) => {
   }
 
   const available = MAX_PHOTOS - photos.length;
+
   const selected = Array.from(files)
     .filter(file => file.type.startsWith("image/"))
     .filter(file => file.size <= 25 * 1024 * 1024)
@@ -285,6 +291,8 @@ const addPhotos = (files: FileList | null) => {
       grupoCaptura === "estacion"
         ? estacionSeleccionada
         : undefined,
+    fechaRegistro: new Date().toISOString(),
+    tamanoBytes: file.size,
   }));
 
   setPhotos(current => [...current, ...newPhotos]);
@@ -292,7 +300,6 @@ const addPhotos = (files: FileList | null) => {
   if (cameraRef.current) cameraRef.current.value = "";
   if (galleryRef.current) galleryRef.current.value = "";
 };
-
   const removePhoto = (id: string) => {
     setPhotos(current => {
       const photo = current.find(item => item.id === id);
