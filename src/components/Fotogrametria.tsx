@@ -548,30 +548,66 @@ const addPhotos = (files: FileList | null) => {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {photos.map((photo, index) => (
-              <div key={photo.id} className="overflow-hidden rounded-lg border border-border">
-                <img
-                  src={photo.preview}
-                  alt={`Fotografía ${index + 1}`}
-                  className="aspect-square w-full object-cover"
-                />
-                <div className="flex items-center justify-between p-2">
-                  <span className="text-xs font-semibold">
-                    Foto {index + 1}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => removePhoto(photo.id)}
-                    aria-label="Eliminar fotografía"
-                    className="text-destructive"
-                  >
-                    <Trash2 className="size-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+          
+<div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+  {photos.map((photo, index) => (
+    <div
+      key={photo.id}
+      className="overflow-hidden rounded-lg border border-border"
+    >
+      <img
+        src={photo.preview}
+        alt={`Fotografía ${index + 1}`}
+        className="aspect-square w-full object-cover"
+      />
+
+      <div className="space-y-1 p-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold">
+            Foto {index + 1}
+          </span>
+
+          <button
+            type="button"
+            onClick={() => removePhoto(photo.id)}
+            aria-label="Eliminar fotografía"
+            className="text-destructive"
+          >
+            <Trash2 className="size-4" />
+          </button>
+        </div>
+
+        <p className="text-xs font-medium text-primary">
+          {photo.grupoCaptura === "estacion"
+            ? "Estación de control"
+            : photo.grupoCaptura === "sacrificio"
+              ? "Sacrificio (tope)"
+              : "Recorrido continuo"}
+        </p>
+
+        {photo.grupoCaptura === "estacion" && (
+          <p className="text-xs text-muted-foreground">
+            {estaciones.find(
+              estacion => estacion.id === photo.estacionId,
+            )?.nombre ?? "Estación sin identificar"}
+
+            {estaciones.find(
+              estacion => estacion.id === photo.estacionId,
+            ) && (
+              <>
+                {" — "}
+                {estaciones
+                  .find(estacion => estacion.id === photo.estacionId)!
+                  .progresiva.toFixed(2)}{" "}
+                m
+              </>
+            )}
+          </p>
+        )}
+      </div>
+    </div>
+  ))}
+</div>
         )}
       </section>
 
