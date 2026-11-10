@@ -460,10 +460,51 @@ const addPhotos = (files: FileList | null) => {
           </span>
         </div>
 
-        <p className="text-sm text-muted-foreground">
-  Selecciona el tipo de captura antes de tomar o elegir las fotografías.
-  Mantén superposición entre imágenes consecutivas.
-</p>
+        <div className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-4">
+  <div className="flex items-center gap-2">
+    <Info className="size-5 text-primary" />
+    <p className="text-sm font-bold">
+      Guía para la captura fotogramétrica
+    </p>
+  </div>
+
+  <div className="space-y-2 text-sm text-muted-foreground">
+    <p>
+      <strong>1. Recorrido continuo:</strong> avanza desde el inicio
+      hacia el tope, fotografiando la corona y ambos hastiales.
+    </p>
+
+    <p>
+      <strong>2. Superposición:</strong> procura que entre fotografías
+      consecutivas se repita aproximadamente el 70–80 % de la superficie.
+    </p>
+
+    <p>
+      <strong>3. Estaciones de control:</strong> toma fotografías
+      adicionales desde los puntos propuestos para reforzar la cobertura.
+    </p>
+
+    <p>
+      <strong>4. Sacrificio:</strong> fotografía el frente del tope
+      de manera independiente, procurando cubrir toda su superficie.
+    </p>
+
+    <p>
+      <strong>5. Calidad:</strong> evita imágenes movidas, zonas
+      excesivamente oscuras, reflejos fuertes y cambios bruscos de distancia.
+    </p>
+
+    <p>
+      <strong>6. Escala:</strong> utiliza una referencia física de
+      dimensión conocida, visible y verificable en las fotografías.
+    </p>
+  </div>
+
+  <p className="text-xs font-medium text-muted-foreground">
+    Estas recomendaciones orientan la captura; no garantizan por sí solas
+    que las fotografías sean suficientes para reconstruir un modelo 3D.
+  </p>
+</div>
 
 <div className="grid gap-3 sm:grid-cols-2">
   <label className="space-y-1">
