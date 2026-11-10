@@ -255,8 +255,16 @@ setPhotos(fotosRecuperadas);
       });
     };
   }, []);
-  const addPhotos = (files: FileList | null) => {
+  
+const addPhotos = (files: FileList | null) => {
   if (!files) return;
+
+  if (grupoCaptura === "estacion" && !estacionSeleccionada) {
+    window.alert(
+      "Selecciona una estación de control antes de agregar fotografías.",
+    );
+    return;
+  }
 
   const available = MAX_PHOTOS - photos.length;
   const selected = Array.from(files)
