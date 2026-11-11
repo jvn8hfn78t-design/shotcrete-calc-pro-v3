@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { DiagnosticoDispositivo } from "./DiagnosticoDispositivo";
 import {
   guardarLevantamiento,
   obtenerLevantamiento,
@@ -338,6 +339,8 @@ const addPhotos = (files: FileList | null) => {
             "No se pudo guardar. Revisa el almacenamiento del dispositivo."}
         </p>
       </header>
+
+            <DiagnosticoDispositivo />
 
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
         <div className="flex gap-2">
