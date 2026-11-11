@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { DiagnosticoDispositivo } from "./DiagnosticoDispositivo";
+import { PruebaRendimiento } from "./PruebaRendimiento";
 import {
   guardarLevantamiento,
   obtenerLevantamiento,
@@ -342,6 +343,7 @@ const addPhotos = (files: FileList | null) => {
 
             <DiagnosticoDispositivo />
 
+<PruebaRendimiento />
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
         <div className="flex gap-2">
           <Info className="size-4 shrink-0 text-amber-500" />
