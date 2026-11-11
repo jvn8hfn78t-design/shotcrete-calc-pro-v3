@@ -214,14 +214,20 @@ lectura = dispositivo.createBuffer({
           lectura.getMappedRange(),
         );
 
-       resultadoCorrecto =
-  valores.length === cantidad &&
-  valores[0] === 1013904223 &&
-  valores[cantidad - 1] ===
-    (
-      (((cantidad - 1) * 1664525 + 1013904223) >>> 0) ^
-      ((cantidad - 1) >>> 3)
-    );
+               const ultimoIndice = cantidad - 1;
+
+        const esperadoUltimo =
+          (
+            (
+              ((ultimoIndice * 1664525 + 1013904223) >>> 0) ^
+              (ultimoIndice >>> 3)
+            ) >>> 0
+          );
+
+        resultadoCorrecto =
+          valores.length === cantidad &&
+          valores[0] === 1013904223 &&
+          valores[ultimoIndice] === esperadoUltimo;
         lectura.unmap();
 
         tiempos.push(performance.now() - inicio);
