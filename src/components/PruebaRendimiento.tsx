@@ -165,14 +165,14 @@ export function PruebaRendimiento() {
       });
 
       datos = dispositivo.createBuffer({
-        size: bytes,
-        usage: 128 | 8,
-      });
+  size: bytes,
+  usage: 128 | 4,
+});
 
-      lectura = dispositivo.createBuffer({
-        size: bytes,
-        usage: 1 | 4,
-      });
+lectura = dispositivo.createBuffer({
+  size: bytes,
+  usage: 1 | 8,
+});
 
       const grupo = dispositivo.createBindGroup({
         layout: pipeline.getBindGroupLayout(0),
@@ -214,13 +214,14 @@ export function PruebaRendimiento() {
           lectura.getMappedRange(),
         );
 
-        resultadoCorrecto =
-          valores.length === cantidad &&
-          valores[0] === 1013904223 &&
-          valores[cantidad - 1] ===
-            (((cantidad - 1) * 1664525 + 1013904223) >>> 0) ^
-              ((cantidad - 1) >>> 3);
-
+       resultadoCorrecto =
+  valores.length === cantidad &&
+  valores[0] === 1013904223 &&
+  valores[cantidad - 1] ===
+    (
+      (((cantidad - 1) * 1664525 + 1013904223) >>> 0) ^
+      ((cantidad - 1) >>> 3)
+    );
         lectura.unmap();
 
         tiempos.push(performance.now() - inicio);
