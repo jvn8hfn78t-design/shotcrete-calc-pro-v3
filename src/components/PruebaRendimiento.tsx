@@ -149,8 +149,7 @@ export function PruebaRendimiento() {
             let i = id.x;
 
             if (i < 262144u) {
-              salida[i] =
-                (i * 1664525u + 1013904223u) ^ (i >> 3u);
+              salida[i] = i;
             }
           }
         `,
@@ -214,20 +213,13 @@ lectura = dispositivo.createBuffer({
           lectura.getMappedRange(),
         );
 
-               const ultimoIndice = cantidad - 1;
-
-        const esperadoUltimo =
-          (
-            (
-              ((ultimoIndice * 1664525 + 1013904223) >>> 0) ^
-              (ultimoIndice >>> 3)
-            ) >>> 0
-          );
+                       const ultimoIndice = cantidad - 1;
 
         resultadoCorrecto =
           valores.length === cantidad &&
-          valores[0] === 1013904223 &&
-          valores[ultimoIndice] === esperadoUltimo;
+          valores[0] === 0 &&
+          valores[1] === 1 &&
+          valores[ultimoIndice] === ultimoIndice;
         lectura.unmap();
 
         tiempos.push(performance.now() - inicio);
