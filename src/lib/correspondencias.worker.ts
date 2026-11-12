@@ -239,8 +239,16 @@ self.onmessage = (e:MessageEvent<Orden>) => {
         const puntos=inversa?grupo.map(p=>({a:p.b,b:p.a})):grupo;
         const geo=evaluarCamaras(puntos,inversa?[b,a]:[a,b]);
         if (geo.nube) {
-          self.postMessage({i:inversa?orden.j:orden.i,j:inversa?orden.i:orden.j,
-            pares:verificar(puntos),candidatos:puntos.length,geometria:geo});
+          const paresVerificados = verificar(puntos);
+          self.postMessage({
+            i: orden.i,
+            j: orden.j,
+            pares: inversa
+              ? paresVerificados.map(p => ({ a: p.b, b: p.a }))
+              : paresVerificados,
+            candidatos: puntos.length,
+            geometria: geo,
+          });
           return;
         }
       }
