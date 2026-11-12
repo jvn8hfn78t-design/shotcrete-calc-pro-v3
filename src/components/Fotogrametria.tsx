@@ -1,5 +1,6 @@
 import { CorrespondenciasFotos } from "./CorrespondenciasFotos";
 import { PilotoLabor3D } from "./PilotoLabor3D";
+import { CapturaVideo3D } from "./CapturaVideo3D";
 import { useEffect, useRef, useState } from "react";
 import { DiagnosticoDispositivo } from "./DiagnosticoDispositivo";
 import { PruebaRendimiento } from "./PruebaRendimiento";
@@ -270,8 +271,8 @@ setPhotos(fotosRecuperadas);
     };
   }, []);
   
-const addPhotos = (files: FileList | null) => {
-  if (!files) return;
+const agregarArchivos = (files: File[]) => {
+  if (!files.length) return;
 
   if (grupoCaptura === "estacion" && !estacionSeleccionada) {
     window.alert(
@@ -282,7 +283,7 @@ const addPhotos = (files: FileList | null) => {
 
   const available = MAX_PHOTOS - photos.length;
 
-  const selected = Array.from(files)
+  const selected = files
     .filter(file => file.type.startsWith("image/"))
     .filter(file => file.size <= 25 * 1024 * 1024)
     .slice(0, available);
@@ -305,6 +306,7 @@ const addPhotos = (files: FileList | null) => {
   if (cameraRef.current) cameraRef.current.value = "";
   if (galleryRef.current) galleryRef.current.value = "";
 };
+  const addPhotos = (files: FileList | null) => agregarArchivos(files ? Array.from(files) : []);
   const removePhoto = (id: string) => {
     setPhotos(current => {
       const photo = current.find(item => item.id === id);
@@ -351,6 +353,8 @@ const addPhotos = (files: FileList | null) => {
 <PruebaRendimiento />
 
 <PilotoLabor3D />
+
+<CapturaVideo3D disponibles={MAX_PHOTOS - photos.length} onFotogramas={agregarArchivos} />
 
 <PreparacionFotografias fotos={photos} />
 <CorrespondenciasFotos key={parRecorrido.map(foto => foto.id).join("|")} fotos={parRecorrido} />
