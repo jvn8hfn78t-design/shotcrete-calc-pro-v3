@@ -1,3 +1,4 @@
+import type { Diagnostico } from "../lib/geometria-camaras";
 import { useEffect, useRef, useState } from "react";
 import Comparador from "../lib/correspondencias.worker?worker&inline";
 import { leerFoto } from "./PreparacionFotografias";
@@ -6,7 +7,7 @@ type Foto = { id: string; file: Blob; preview: string };
 type Punto = { x: number; y: number };
 type Par = { a: Punto; b: Punto };
 
-type Resultado = { i:number; j:number; pares:Par[]; candidatos:number };
+type Resultado = { i:number; j:number; pares:Par[]; candidatos:number; geometria:Diagnostico };
 type Tamano = { ancho:number; alto:number };
 
 function procesar<T>(worker:Worker, orden:unknown, signal:AbortSignal, transfer:Transferable[]=[]):Promise<T> {
@@ -64,7 +65,7 @@ export function CorrespondenciasFotos({ fotos }: { fotos: Foto[] }) {
           if (r.pares.length) resultados.push(r);
         }
       }
-      resultados.sort((a,b)=>b.pares.length-a.pares.length);
+      resultados.sort((a,b)=>Number(b.geometria.estado==="paralaje")-Number(a.geometria.estado==="paralaje") || b.pares.length-a.pares.length);
       setTamanos(medidas); setLista(resultados);
       setMensaje(`${resultados.length} de ${total} pares de fotos con al menos cinco puntos compatibles.`);
     } catch (error) {
@@ -87,9 +88,19 @@ export function CorrespondenciasFotos({ fotos }: { fotos: Foto[] }) {
       <p role="status" className="text-sm">{fotos.length<2 ? "Agrega dos fotografías de recorrido." : mensaje}</p>
       {resultado && <label className="block text-sm">Par de fotos
         <select className="block w-full rounded-lg border bg-background p-2" value={indice} onChange={e=>setIndice(Number(e.target.value))}>
-          {lista.map((r,k)=><option key={r.i+"-"+r.j} value={k}>Fotos {r.i+1} y {r.j+1} · {r.pares.length} puntos</option>)}
+          {lista.map((r,k)=><option key={r.i+"-"+r.j} value={k}>Fotos {r.i+1} y {r.j+1} · {r.pares.length} puntos{r.geometria.estado === 'paralaje' ? ' · posible profundidad' : ''}</option>)}
         </select>
       </label>}
+      {resultado && <div className="rounded-lg border p-3 text-sm">
+        <p className="font-semibold">Geometría entre cámaras</p>
+        <p>{{
+          escasos: "Pocos candidatos para evaluar profundidad (mínimo 12).",
+          incierto: "La evidencia de profundidad es insuficiente en este par.",
+          plano: "Las marcas se explican principalmente por una superficie plana o un giro de cámara.",
+          paralaje: "Hay indicios de profundidad. Este par es candidato para la triangulación."
+        }[resultado.geometria.estado]}</p>
+        {resultado.geometria.plano > 0 && <p>Compatibles con el plano: {resultado.geometria.plano}. Fuera del ajuste plano con movimiento coherente: {resultado.geometria.apoyo} de {resultado.geometria.fuera} candidatos.</p>}
+      </div>}
       {resultado && [resultado.i,resultado.j].map((numero,i) => {
         const foto=fotos[numero];
         const { ancho,alto }=tamanos[numero];

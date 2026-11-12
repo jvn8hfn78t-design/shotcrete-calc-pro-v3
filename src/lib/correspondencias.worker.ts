@@ -1,3 +1,4 @@
+import { evaluarCamaras } from "./geometria-camaras";
 type Trama = { ancho: number; alto: number; datos: Uint8ClampedArray };
 type Punto = { x: number; y: number };
 type Rasgo = Punto & { descriptor: Float32Array };
@@ -232,6 +233,6 @@ self.onmessage = (e:MessageEvent<Orden>) => {
     const verificados=verificar(otros);
     if (verificados.length) { candidatos=otros; pares=verificados; }
   }
-  self.postMessage({i:orden.i,j:orden.j,pares,candidatos:candidatos.length});
+  self.postMessage({i:orden.i,j:orden.j,pares,candidatos:candidatos.length, geometria:evaluarCamaras(candidatos)});
 };
 export {};
