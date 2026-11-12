@@ -233,6 +233,6 @@ self.onmessage = (e:MessageEvent<Orden>) => {
     const verificados=verificar(otros);
     if (verificados.length) { candidatos=otros; pares=verificados; }
   }
-  self.postMessage({i:orden.i,j:orden.j,pares,candidatos:candidatos.length, geometria:evaluarCamaras(candidatos)});
+  self.postMessage({i:orden.i,j:orden.j,pares,candidatos:candidatos.length, geometria:evaluarCamaras(candidatos,[a,b])});
 };
 export {};

@@ -1,3 +1,4 @@
+import { VistaNube } from "./VistaNube";
 import type { Diagnostico } from "../lib/geometria-camaras";
 import { useEffect, useRef, useState } from "react";
 import Comparador from "../lib/correspondencias.worker?worker&inline";
@@ -36,6 +37,7 @@ export function CorrespondenciasFotos({ fotos }: { fotos: Foto[] }) {
   const [ocupado,setOcupado]=useState(false);
   const [lista,setLista]=useState<Resultado[]>([]);
   const [indice,setIndice]=useState(0);
+  const [punto,setPunto]=useState(0);
   const [tamanos,setTamanos]=useState<Tamano[]>([]);
   const tarea=useRef<AbortController|null>(null);
   useEffect(()=>()=>{ tarea.current?.abort(); },[]);
@@ -43,7 +45,7 @@ export function CorrespondenciasFotos({ fotos }: { fotos: Foto[] }) {
     if (tarea.current || fotos.length<2) return;
     const control=new AbortController();
     tarea.current=control;
-    setOcupado(true); setLista([]); setIndice(0);
+    setOcupado(true); setLista([]); setIndice(0); setPunto(0);
     let worker:Worker|undefined;
     try {
       worker=new Comparador();
@@ -65,7 +67,7 @@ export function CorrespondenciasFotos({ fotos }: { fotos: Foto[] }) {
           if (r.pares.length) resultados.push(r);
         }
       }
-      resultados.sort((a,b)=>Number(b.geometria.estado==="paralaje")-Number(a.geometria.estado==="paralaje") || b.pares.length-a.pares.length);
+      resultados.sort((a,b)=>Number(!!b.geometria.nube)-Number(!!a.geometria.nube) || Number(b.geometria.estado==="paralaje")-Number(a.geometria.estado==="paralaje") || b.pares.length-a.pares.length);
       setTamanos(medidas); setLista(resultados);
       setMensaje(`${resultados.length} de ${total} pares de fotos con al menos cinco puntos compatibles.`);
     } catch (error) {
@@ -87,7 +89,7 @@ export function CorrespondenciasFotos({ fotos }: { fotos: Foto[] }) {
       </button>
       <p role="status" className="text-sm">{fotos.length<2 ? "Agrega dos fotografías de recorrido." : mensaje}</p>
       {resultado && <label className="block text-sm">Par de fotos
-        <select className="block w-full rounded-lg border bg-background p-2" value={indice} onChange={e=>setIndice(Number(e.target.value))}>
+        <select className="block w-full rounded-lg border bg-background p-2" value={indice} onChange={e=>{setIndice(Number(e.target.value));setPunto(0);}}>
           {lista.map((r,k)=><option key={r.i+"-"+r.j} value={k}>Fotos {r.i+1} y {r.j+1} · {r.pares.length} puntos{r.geometria.estado === 'paralaje' ? ' · posible profundidad' : ''}</option>)}
         </select>
       </label>}
@@ -101,8 +103,12 @@ export function CorrespondenciasFotos({ fotos }: { fotos: Foto[] }) {
         }[resultado.geometria.estado]}</p>
         {resultado.geometria.plano > 0 && <p>Compatibles con el plano: {resultado.geometria.plano}. Fuera del ajuste plano con movimiento coherente: {resultado.geometria.apoyo} de {resultado.geometria.fuera} candidatos.</p>}
       </div>}
+      {resultado?.geometria.nube && <VistaNube key={resultado.i+"-"+resultado.j} nube={resultado.geometria.nube} indice={punto} seleccionar={setPunto}/>}
+      {resultado?.geometria.estado==="paralaje" && !resultado.geometria.nube && <p>Faltan puntos con profundidad estable para mostrar esta nube.</p>}
       {resultado && [resultado.i,resultado.j].map((numero,i) => {
         const foto=fotos[numero];
+        const elegido=resultado.geometria.nube?.puntos[punto];
+        const marca=i===0?elegido?.a:elegido?.b;
         const { ancho,alto }=tamanos[numero];
         return (
         <figure key={foto.id}>
@@ -117,6 +123,7 @@ export function CorrespondenciasFotos({ fotos }: { fotos: Foto[] }) {
                   strokeWidth={3} paintOrder="stroke" fontSize={14} fontWeight="bold">{j + 1}</text>
               </g>;
             })}
+            {marca && <circle cx={marca.x} cy={marca.y} r={8} fill="none" stroke="#fbbf24" strokeWidth={3}/>}
           </svg>
         </figure>
       ); })}

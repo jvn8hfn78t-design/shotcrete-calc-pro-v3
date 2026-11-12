@@ -1,9 +1,10 @@
+import { triangular, type Nube } from "./triangulacion";
 type Punto = { x:number; y:number };
 type Par = { a:Punto; b:Punto };
 type Vector = [number,number,number];
 type Estado = "escasos" | "incierto" | "plano" | "paralaje";
 
-export type Diagnostico = { estado:Estado; plano:number; fuera:number; apoyo:number };
+export type Diagnostico = { estado:Estado; plano:number; fuera:number; apoyo:number; nube?:Nube };
 
 function cruz(a:Vector,b:Vector):Vector {
   return [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
@@ -45,7 +46,7 @@ function proyectar(h:number[],a:Punto):Punto {
 }
 const distancia=(a:Punto,b:Punto)=>Math.hypot(a.x-b.x,a.y-b.y);
 
-export function evaluarCamaras(pares:Par[]):Diagnostico {
+export function evaluarCamaras(pares:Par[], camaras?:[{ancho:number;alto:number},{ancho:number;alto:number}]):Diagnostico {
   const d:Diagnostico={estado:"escasos",plano:0,fuera:0,apoyo:0};
   if(pares.length<12) return d;
   d.estado="incierto";
@@ -81,22 +82,28 @@ export function evaluarCamaras(pares:Par[]):Diagnostico {
   if(d.plano<Math.max(8,pares.length*0.35)) return d;
   // En dos vistas, las rectas entre H*a y b pasan por el epipolo.
   // La representación homogénea también admite un epipolo en el infinito.
+  let mejorEpipolo:Vector|null=null, menorResidual=Infinity;
   const salto=Math.max(1,Math.ceil(externos.length/40));
   for(let i=0;i<externos.length;i+=salto) for(let j=i+1;j<externos.length;j+=salto) {
     if(distancia(externos[i].p.b,externos[j].p.b)<16) continue;
     const epipolo=cruz(externos[i].linea,externos[j].linea);
-    let apoyo=0;
+    let apoyo=0,residual=0;
     const celdas=new Set<string>();
     for(const {p,previsto:q} of externos) {
       const [a,b,c]=cruz(epipolo,[q.x,q.y,1]);
       const norma=Math.hypot(a,b);
       if(norma>1e-8 && Math.abs(a*p.b.x+b*p.b.y+c)/norma<=1.25) {
+        residual+=Math.abs(a*p.b.x+b*p.b.y+c)/norma;
         apoyo++; celdas.add(Math.floor(p.b.x/40)+","+Math.floor(p.b.y/40));
       }
     }
-    if(celdas.size>=3) d.apoyo=Math.max(d.apoyo,apoyo);
+    if(celdas.size>=3 && (apoyo>d.apoyo || (apoyo===d.apoyo && residual<menorResidual))) { d.apoyo=apoyo; menorResidual=residual; mejorEpipolo=epipolo; }
   }
   if(d.apoyo>=Math.max(8,Math.ceil(0.70*d.fuera))) d.estado="paralaje";
   else if(d.plano>=0.85*pares.length) d.estado="plano";
+  if(d.estado==="paralaje" && mejorEpipolo && camaras) {
+    const nube=triangular(pares,h,mejorEpipolo,camaras[0],camaras[1]);
+    if(nube) d.nube=nube;
+  }
   return d;
 }
