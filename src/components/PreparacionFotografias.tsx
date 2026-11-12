@@ -94,7 +94,7 @@ function procesarPixeles(
   });
 }
 
-async function leerFoto(blob: Blob) {
+export async function leerFoto(blob: Blob) {
   const url = URL.createObjectURL(blob);
   const imagen = new Image();
 

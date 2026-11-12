@@ -1,3 +1,4 @@
+import { CorrespondenciasFotos } from "./CorrespondenciasFotos";
 import { useEffect, useRef, useState } from "react";
 import { DiagnosticoDispositivo } from "./DiagnosticoDispositivo";
 import { PruebaRendimiento } from "./PruebaRendimiento";
@@ -311,6 +312,8 @@ const addPhotos = (files: FileList | null) => {
     });
   };
 
+  const parRecorrido = photos.filter(foto => (foto.grupoCaptura ?? "recorrido") === "recorrido").slice(0, 2);
+
   return (
     <div className="mx-auto max-w-6xl space-y-6">
 
@@ -347,6 +350,7 @@ const addPhotos = (files: FileList | null) => {
 <PruebaRendimiento />
 
 <PreparacionFotografias fotos={photos} />
+<CorrespondenciasFotos key={parRecorrido.map(foto => foto.id).join("|")} fotos={parRecorrido} />
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
         <div className="flex gap-2">
           <Info className="size-4 shrink-0 text-amber-500" />
