@@ -1601,11 +1601,9 @@ Fecha: ${date}`;
       "El navegador no permite compartir archivos. PDF descargado."
     );
   } catch (error) {
+    if (error instanceof Error && (error.name === "AbortError" || /cancel|dismiss/i.test(error.message))) return;
     console.error("Error al compartir PDF:", error);
-
-    toast.error(
-      "No se pudo compartir el PDF"
-    );
+    toast.error("No se pudo compartir el PDF. Prueba Descargar PDF.");
   }
 };
 
@@ -1882,7 +1880,7 @@ Fecha: ${date}`;
           <button
             type="button"
             onClick={() => addMeasurement(item.setter)}
-            className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/15 text-lg font-bold text-primary hover:bg-primary/25"
+            className="flex size-6 shrink-0 items-center justify-center rounded-md border border-primary/30 bg-primary/10 text-sm font-semibold leading-none text-primary transition-colors hover:bg-primary/20"
             aria-label={`Agregar medición de ${item.label.toLowerCase()}`}
             title="Agregar medición"
           >+</button>
@@ -2127,7 +2125,6 @@ Fecha: ${date}`;
               </div>
             )}
 
-          {modeloDisponible && <PilotoLabor3D ancho={ancho3D} alto={alto3D} longitud={largo3D} />}
 
           {/* Verification table */}
 <div className="mt-6 overflow-x-auto rounded-xl border border-border">
@@ -2349,6 +2346,12 @@ Fecha: ${date}`;
     </div>
   )}
 </div>
+
+{modeloDisponible && (
+  <div className="mt-6">
+    <PilotoLabor3D ancho={ancho3D} alto={alto3D} longitud={largo3D} />
+  </div>
+)}
 
 <button
   onClick={generatePDF}
