@@ -1,4 +1,5 @@
 import { CorrespondenciasFotos } from "./CorrespondenciasFotos";
+import { PilotoLabor3D } from "./PilotoLabor3D";
 import { useEffect, useRef, useState } from "react";
 import { DiagnosticoDispositivo } from "./DiagnosticoDispositivo";
 import { PruebaRendimiento } from "./PruebaRendimiento";
@@ -348,6 +349,8 @@ const addPhotos = (files: FileList | null) => {
             <DiagnosticoDispositivo />
 
 <PruebaRendimiento />
+
+<PilotoLabor3D />
 
 <PreparacionFotografias fotos={photos} />
 <CorrespondenciasFotos key={parRecorrido.map(foto => foto.id).join("|")} fotos={parRecorrido} />
