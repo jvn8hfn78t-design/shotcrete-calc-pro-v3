@@ -17,8 +17,8 @@ export function PilotoLabor3D({
   const A = Math.max(0.5, ancho);
   const H = Math.max(A / 2, alto);
   const L = Math.max(0.1, longitud);
-  const [yaw, setYaw] = useState(17);
-  const [pitch, setPitch] = useState(10);
+  const [yaw, setYaw] = useState(5);
+  const [pitch, setPitch] = useState(7);
   const [zoom, setZoom] = useState(1);
   const [selected, setSelected] = useState<Surface | null>(null);
   const dragging = useRef<{ x: number; y: number; yaw: number; pitch: number } | null>(null);
@@ -45,14 +45,14 @@ export function PilotoLabor3D({
 
     const yr = yaw * Math.PI / 180;
     const pr = pitch * Math.PI / 180;
-    const scale = 174 / Math.max(A, H, L, 3) * zoom;
+    const scale = 180 / Math.max(A, H, L, 3) * zoom;
     const project = (p: Point): Projected => {
       const x = p.x, y = p.y - H * 0.49, z = p.z - L * 0.5;
       const horizontal = x * Math.cos(yr) + z * Math.sin(yr);
       const depth = -x * Math.sin(yr) + z * Math.cos(yr);
       return {
-        x: 210 + horizontal * scale,
-        y: 189 - (y * Math.cos(pr) - depth * Math.sin(pr)) * scale,
+        x: 210 + horizontal * scale * (1.12 - 0.24 * p.z / L),
+        y: 189 - (y * Math.cos(pr) - depth * Math.sin(pr)) * scale * (1.12 - 0.24 * p.z / L),
         depth: y * Math.sin(pr) + depth * Math.cos(pr),
       };
     };
@@ -84,28 +84,44 @@ export function PilotoLabor3D({
       }
     }
 
-    // Tope completo con pequeñas facetas rocosas: no es una superficie plana artificial.
-    const center = project({ x: 0, y: H * 0.49, z: L });
-    const inner = Array.from({ length: n + 1 }, (_, j) => {
-      const p = profile(j / n, L, 0.045);
+    // El tope es una superficie CONTINUA: contorno en herradura y cierre recto inferior.
+    // No se utiliza abanico de triángulos que se cruzan ni se construye el piso.
+    const outline = Array.from({ length: n + 1 }, (_, j) =>
+      project(profile(j / n, L, 0))
+    );
+    const topePoints = [...outline, project({ x: -r, y: 0, z: L })];
+    add("tope-completo", topePoints, "#77746d", "tope", "#b5a28a");
+
+    // Facetas sutiles, siempre dentro del contorno del frente.
+    const center = project({ x: 0, y: H * 0.48, z: L });
+    const ring = Array.from({ length: n + 1 }, (_, j) => {
+      const p = profile(j / n, L, 0);
       return project({
-        x: p.x * 0.52 + (hash(j, 0, 8) - 0.5) * A * 0.045,
-        y: H * 0.49 + (p.y - H * 0.49) * 0.52,
-        z: L + (hash(j, 0, 9) - 0.5) * L * 0.018,
+        x: p.x * 0.53,
+        y: H * 0.48 + (p.y - H * 0.48) * 0.53,
+        z: L,
       });
     });
     for (let j = 0; j < n; j++) {
-      const light = 33 + Math.round(hash(j, 3, 5) * 17);
-      add(`face-outer-${j}`, [rows[steps][j], rows[steps][j + 1], inner[j + 1], inner[j]],
-        `hsl(22 16% ${light}%)`, "tope", "rgba(20,18,16,0.13)");
-      add(`face-inner-${j}`, [inner[j], inner[j + 1], center],
-        `hsl(22 16% ${36 + Math.round(hash(j, 4, 5) * 15)}%)`, "tope", "rgba(20,18,16,0.11)");
+      const shade = 38 + Math.round(hash(j, 3, 5) * 13);
+      add(`tope-borde-${j}`, [outline[j], outline[j + 1], ring[j + 1], ring[j]],
+        `hsl(30 11% ${shade}%)`, "tope");
+      add(`tope-centro-${j}`, [ring[j], ring[j + 1], center],
+        `hsl(30 10% ${40 + Math.round(hash(j, 4, 5) * 11)}%)`, "tope");
     }
-    // Deliberadamente SIN piso: el área inferior queda abierta.
-    return result.sort((a, b) => b.depth - a.depth);
+
+    // Orden: el frente va al fondo; los hastiales y la corona pueden ocultar
+    // sus bordes al girar, como sucede en una galería real.
+    return result.sort((a, b) => {
+      if (a.surface === "tope" && b.surface !== "tope") return -1;
+      if (b.surface === "tope" && a.surface !== "tope") return 1;
+      if (a.id === "tope-completo") return -1;
+      if (b.id === "tope-completo") return 1;
+      return b.depth - a.depth;
+    });
   }, [A, H, L, yaw, pitch, zoom]);
 
-  const reset = () => { setYaw(17); setPitch(10); setZoom(1); setSelected(null); };
+  const reset = () => { setYaw(5); setPitch(7); setZoom(1); setSelected(null); };
 
   return (
     <section className="mt-5 overflow-hidden rounded-2xl border border-border bg-card">
@@ -113,7 +129,7 @@ export function PilotoLabor3D({
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">VISUALIZACIÓN DE LA LABOR</p>
           <h3 className="mt-1 font-display text-xl font-bold uppercase text-foreground">Hastiales · Corona · Tope</h3>
-          <p className="mt-1 text-xs text-muted-foreground">Superficies rocosas diferenciadas. Toca una zona para identificarla.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Vista desde la entrada hacia el tope, con hastiales y corona diferenciados.</p>
         </div>
         <span className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-primary">Modelo referencial</span>
       </div>
