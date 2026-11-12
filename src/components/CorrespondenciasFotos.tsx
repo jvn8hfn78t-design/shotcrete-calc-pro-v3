@@ -72,20 +72,44 @@ export function CorrespondenciasFotos({ fotos }: { fotos: Foto[] }) {
       }
       let reintentos=0;
       const semillas=resultados.filter(r=>r.geometria.nube);
-      if (semillas.length===1) {
-        const semilla=semillas[0];
-        for (const extremo of [semilla.i,semilla.j]) {
-          for (let otra=0;otra<fotos.length;otra++) {
-            if (otra===semilla.i || otra===semilla.j) continue;
-            const i=Math.min(extremo,otra),j=Math.max(extremo,otra);
+      // Cuando la primera pasada no encuentra nubes, reanalizar los pares
+      // con más correspondencias usando dos escalas y ambas orientaciones.
+      if (semillas.length === 0) {
+        const candidatos = [...resultados]
+          .filter(r => r.candidatos >= 12)
+          .sort((a, b) => b.candidatos - a.candidatos)
+          .slice(0, 12);
+        for (const par of candidatos) {
+          reintentos++;
+          setMensaje(`Segunda pasada geométrica ${reintentos} de ${candidatos.length}: fotos ${par.i+1} y ${par.j+1}…`);
+          const nuevo = await procesar<Resultado | null>(
+            worker,
+            { tipo: "comparar", i: par.i, j: par.j, ampliarBusqueda: true },
+            control.signal,
+          );
+          if (!nuevo) continue;
+          const anterior = resultados.findIndex(r => r.i === nuevo.i && r.j === nuevo.j);
+          if (anterior >= 0) resultados[anterior] = nuevo;
+          else resultados.push(nuevo);
+          if (nuevo.geometria.estado === "paralaje") conParalaje.add(nuevo.i + ":" + nuevo.j);
+        }
+      }
+      if (semillas.length === 1) {
+        const semilla = semillas[0];
+        for (const extremo of [semilla.i, semilla.j]) {
+          for (let otra = 0; otra < fotos.length; otra++) {
+            if (otra === semilla.i || otra === semilla.j) continue;
+            const i = Math.min(extremo, otra), j = Math.max(extremo, otra);
             reintentos++;
             setMensaje(`Buscando un enlace con la nube ${semilla.i+1}–${semilla.j+1}: fotos ${i+1} y ${j+1}…`);
-            const nuevo=await procesar<Resultado|null>(worker,{tipo:"comparar",i,j,ampliarBusqueda:true},control.signal);
+            const nuevo = await procesar<Resultado | null>(
+              worker, { tipo: "comparar", i, j, ampliarBusqueda: true }, control.signal,
+            );
             if (!nuevo) continue;
-            const anterior=resultados.findIndex(r=>r.i===i && r.j===j);
-            if (anterior>=0) resultados[anterior]=nuevo;
+            const anterior = resultados.findIndex(r => r.i === nuevo.i && r.j === nuevo.j);
+            if (anterior >= 0) resultados[anterior] = nuevo;
             else resultados.push(nuevo);
-            conParalaje.add(i+":"+j);
+            if (nuevo.geometria.estado === "paralaje") conParalaje.add(nuevo.i + ":" + nuevo.j);
           }
         }
       }
