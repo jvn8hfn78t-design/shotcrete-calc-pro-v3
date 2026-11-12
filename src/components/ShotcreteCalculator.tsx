@@ -1948,7 +1948,7 @@ Fecha: ${date}`;
                     <button
                       type="button"
                       onClick={() => addMeasurement(item.setter)}
-                      className="add-measurement flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-lg font-bold text-primary hover:bg-primary/20"
+                      className="add-measurement flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-sm font-bold text-primary hover:bg-primary/20"
                       aria-label={`Agregar medición de ${item.label.toLowerCase()}`}
                       title="Agregar medición"
                     >
