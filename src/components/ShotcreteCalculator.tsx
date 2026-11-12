@@ -192,7 +192,7 @@ function Field({ fieldKey, value, onChange }: FieldProps) {
         placeholder="0.00"
         aria-invalid={!!error}
         onChange={(e) => onChange(e.target.value)}
-        className={`h-12 w-full rounded-lg border bg-background px-3 text-xl font-bold tabular-nums text-foreground outline-none transition-colors placeholder:text-muted-foreground/40 focus:ring-2 focus:ring-primary/20 ${
+        className={`h-12 w-full min-w-0 rounded-lg border bg-background px-2 text-base font-bold tabular-nums sm:px-3 sm:text-xl text-foreground outline-none transition-colors placeholder:text-muted-foreground/40 focus:ring-2 focus:ring-primary/20 ${
           error ? "border-destructive" : "border-input focus:border-primary"
         }`}
       />
