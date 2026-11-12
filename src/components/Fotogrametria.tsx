@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { DiagnosticoDispositivo } from "./DiagnosticoDispositivo";
 import { PruebaRendimiento } from "./PruebaRendimiento";
+import { PreparacionFotografias } from "./PreparacionFotografias";
 import {
   guardarLevantamiento,
   obtenerLevantamiento,
