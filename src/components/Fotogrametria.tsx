@@ -354,7 +354,7 @@ const agregarArchivos = (files: File[]) => {
 
 <PilotoLabor3D />
 
-<CapturaVideo3D disponibles={MAX_PHOTOS - photos.length} onFotogramas={agregarArchivos} />
+
 
 <PreparacionFotografias fotos={photos} />
 <CorrespondenciasFotos key={parRecorrido.map(foto => foto.id).join("|")} fotos={parRecorrido} />
@@ -489,6 +489,8 @@ const agregarArchivos = (files: File[]) => {
             {photos.length}/{MAX_PHOTOS}
           </span>
         </div>
+
+        <CapturaVideo3D disponibles={MAX_PHOTOS - photos.length} onFotogramas={agregarArchivos} />
 
         <div className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-4">
   <div className="flex items-center gap-2">
