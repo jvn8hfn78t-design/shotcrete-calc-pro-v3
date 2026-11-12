@@ -109,3 +109,41 @@
     oklch(0.17 0.02 264) 24px
   );
 }
+
+
+/* Acabado de interfaz de campo: contraste y controles coherentes. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 3px;
+  }
+
+  button, input, select, textarea {
+    font-family: inherit;
+  }
+
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+
+  input, select, textarea {
+    accent-color: var(--color-primary);
+  }
+
+  ::selection {
+    background: oklch(0.79 0.16 82 / 28%);
+    color: var(--color-foreground);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
