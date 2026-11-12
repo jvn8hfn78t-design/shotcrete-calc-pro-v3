@@ -214,7 +214,7 @@ function verificar(pares: Par[]) {
 
 type Rasgos = ReturnType<typeof extraer>;
 const fotos = new Map<number,{ ancho:number; alto:number; normal:Rasgos; reducida:Rasgos }>();
-type Orden = { tipo:"foto"; indice:number; trama:Trama } | { tipo:"comparar"; i:number; j:number };
+type Orden = { tipo:"foto"; indice:number; trama:Trama } | { tipo:"comparar"; i:number; j:number; ampliarBusqueda?:boolean };
 
 self.onmessage = (e:MessageEvent<Orden>) => {
   const orden=e.data;
@@ -225,6 +225,29 @@ self.onmessage = (e:MessageEvent<Orden>) => {
     return;
   }
   const a=fotos.get(orden.i)!, b=fotos.get(orden.j)!;
+  if (orden.ampliarBusqueda) {
+    // Se conserva una sola observación por detalle, incluso si aparece a dos escalas.
+    const ampliar=(p:Punto)=>({x:2*p.x+0.5,y:2*p.y+0.5});
+    const normales=emparejar(a.normal,b.normal);
+    const reducidos=emparejar(a.reducida,b.reducida,true).map(p=>({a:ampliar(p.a),b:ampliar(p.b)}));
+    const distintos=[...normales];
+    for (const p of reducidos) {
+      if (!distintos.some(q=>Math.hypot(q.a.x-p.a.x,q.a.y-p.a.y)<4 || Math.hypot(q.b.x-p.b.x,q.b.y-p.b.y)<4)) distintos.push(p);
+    }
+    for (const grupo of [distintos,normales,reducidos]) {
+      for (const inversa of [true,false]) {
+        const puntos=inversa?grupo.map(p=>({a:p.b,b:p.a})):grupo;
+        const geo=evaluarCamaras(puntos,inversa?[b,a]:[a,b]);
+        if (geo.nube) {
+          self.postMessage({i:inversa?orden.j:orden.i,j:inversa?orden.i:orden.j,
+            pares:verificar(puntos),candidatos:puntos.length,geometria:geo});
+          return;
+        }
+      }
+    }
+    self.postMessage(null);
+    return;
+  }
   let candidatos=emparejar(a.normal,b.normal);
   let pares=verificar(candidatos);
   if (!pares.length) {

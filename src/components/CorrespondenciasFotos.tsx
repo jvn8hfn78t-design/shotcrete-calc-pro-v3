@@ -60,20 +60,39 @@ export function CorrespondenciasFotos({ fotos }: { fotos: Foto[] }) {
       }
       const total=fotos.length*(fotos.length-1)/2;
       const resultados:Resultado[]=[];
-      let conParalaje = 0;
+      const conParalaje = new Set<string>();
       let hechos=0;
       for (let i=0;i<fotos.length;i++) {
         for (let j=i+1;j<fotos.length;j++) {
           setMensaje(`Comparando par ${++hechos} de ${total}…`);
           const r=await procesar<Resultado>(worker,{tipo:"comparar",i,j},control.signal);
-          if (r.geometria.estado === "paralaje") conParalaje++;
+          if (r.geometria.estado === "paralaje") conParalaje.add(i+":"+j);
           if (r.pares.length || r.geometria.nube) resultados.push(r);
+        }
+      }
+      let reintentos=0;
+      const semillas=resultados.filter(r=>r.geometria.nube);
+      if (semillas.length===1) {
+        const semilla=semillas[0];
+        for (const extremo of [semilla.i,semilla.j]) {
+          for (let otra=0;otra<fotos.length;otra++) {
+            if (otra===semilla.i || otra===semilla.j) continue;
+            const i=Math.min(extremo,otra),j=Math.max(extremo,otra);
+            reintentos++;
+            setMensaje(`Buscando un enlace con la nube ${semilla.i+1}–${semilla.j+1}: fotos ${i+1} y ${j+1}…`);
+            const nuevo=await procesar<Resultado|null>(worker,{tipo:"comparar",i,j,ampliarBusqueda:true},control.signal);
+            if (!nuevo) continue;
+            const anterior=resultados.findIndex(r=>r.i===i && r.j===j);
+            if (anterior>=0) resultados[anterior]=nuevo;
+            else resultados.push(nuevo);
+            conParalaje.add(i+":"+j);
+          }
         }
       }
       resultados.sort((a,b)=>Number(!!b.geometria.nube)-Number(!!a.geometria.nube) || Number(b.geometria.estado==="paralaje")-Number(a.geometria.estado==="paralaje") || b.pares.length-a.pares.length);
       setTamanos(medidas); setLista(resultados); setCompleto(true);
       const conNube = resultados.filter(r => r.geometria.nube).length;
-      setMensaje(`Análisis completo: ${fotos.length} fotos de recorrido · ${total} pares evaluados · ${conParalaje} con paralaje · ${conNube} con nube 3D.`);
+      setMensaje(`Análisis completo: ${fotos.length} fotos de recorrido · ${total} pares evaluados · ${conParalaje.size} con paralaje · ${conNube} con nube 3D.${reintentos ? ` Segunda pasada: ${reintentos} pares revisados.` : ""}`);
     } catch (error) {
       if (!control.signal.aborted) setMensaje(error instanceof Error ? error.message : "Error al analizar las fotos.");
     } finally {
