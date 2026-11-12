@@ -45,7 +45,7 @@ export function CorrespondenciasFotos({ fotos }: { fotos: Foto[] }) {
     if (tarea.current || fotos.length<2) return;
     const control=new AbortController();
     tarea.current=control;
-    setOcupado(true); setLista([]); setIndice(0); setPunto(0);
+    setCompleto(false); setOcupado(true); setLista([]); setIndice(0); setPunto(0);
     let worker:Worker|undefined;
     try {
       worker=new Comparador();
@@ -64,12 +64,13 @@ export function CorrespondenciasFotos({ fotos }: { fotos: Foto[] }) {
         for (let j=i+1;j<fotos.length;j++) {
           setMensaje(`Comparando par ${++hechos} de ${total}…`);
           const r=await procesar<Resultado>(worker,{tipo:"comparar",i,j},control.signal);
-          if (r.pares.length) resultados.push(r);
+          if (r.pares.length || r.geometria.nube) resultados.push(r);
         }
       }
       resultados.sort((a,b)=>Number(!!b.geometria.nube)-Number(!!a.geometria.nube) || Number(b.geometria.estado==="paralaje")-Number(a.geometria.estado==="paralaje") || b.pares.length-a.pares.length);
-      setTamanos(medidas); setLista(resultados);
-      setMensaje(`${resultados.length} de ${total} pares de fotos con al menos cinco puntos compatibles.`);
+      setTamanos(medidas); setLista(resultados); setCompleto(true);
+      const conNube = resultados.filter(r => r.geometria.nube).length;
+      setMensaje(`Análisis completo: ${total} pares evaluados · ${conNube} con nube 3D.`);
     } catch (error) {
       if (!control.signal.aborted) setMensaje(error instanceof Error ? error.message : "Error al analizar las fotos.");
     } finally {
@@ -79,6 +80,8 @@ export function CorrespondenciasFotos({ fotos }: { fotos: Foto[] }) {
     }
   }
   const resultado=lista[indice];
+  const primeroConNube=lista.findIndex(r=>r.geometria.nube);
+  const [completo,setCompleto]=useState(false);
   const visibles=resultado?.pares.filter((_,i,pares)=>i%Math.max(1,Math.ceil(pares.length/16))===0) ?? [];
   return (
     <section className="space-y-3 rounded-xl border border-border bg-card p-4">
@@ -90,7 +93,7 @@ export function CorrespondenciasFotos({ fotos }: { fotos: Foto[] }) {
       <p role="status" className="text-sm">{fotos.length<2 ? "Agrega dos fotografías de recorrido." : mensaje}</p>
       {resultado && <label className="block text-sm">Par de fotos
         <select className="block w-full rounded-lg border bg-background p-2" value={indice} onChange={e=>{setIndice(Number(e.target.value));setPunto(0);}}>
-          {lista.map((r,k)=><option key={r.i+"-"+r.j} value={k}>Fotos {r.i+1} y {r.j+1} · {r.pares.length} puntos{r.geometria.estado === 'paralaje' ? ' · posible profundidad' : ''}</option>)}
+          {lista.map((r,k)=><option key={r.i+"-"+r.j} value={k}>Fotos {r.i+1} y {r.j+1} · {r.pares.length} puntos{r.geometria.nube ? ` · nube 3D (${r.geometria.nube.puntos.length})` : r.geometria.estado === 'paralaje' ? ' · posible profundidad' : ''}</option>)}
         </select>
       </label>}
       {resultado && <div className="rounded-lg border p-3 text-sm">
@@ -104,7 +107,17 @@ export function CorrespondenciasFotos({ fotos }: { fotos: Foto[] }) {
         {resultado.geometria.plano > 0 && <p>Compatibles con el plano: {resultado.geometria.plano}. Fuera del ajuste plano con movimiento coherente: {resultado.geometria.apoyo} de {resultado.geometria.fuera} candidatos.</p>}
       </div>}
       {resultado?.geometria.nube && <VistaNube key={resultado.i+"-"+resultado.j} nube={resultado.geometria.nube} indice={punto} seleccionar={setPunto}/>}
-      {resultado?.geometria.estado==="paralaje" && !resultado.geometria.nube && <p>Faltan puntos con profundidad estable para mostrar esta nube.</p>}
+      {!resultado?.geometria.nube && <div className="space-y-2 rounded-lg border p-3">
+        <h4 className="font-bold">Nube 3D experimental</h4>
+        <p className="text-sm">{ocupado ? "Evaluando las fotos del recorrido…"
+          : !completo ? (fotos.length < 2 ? "Agrega dos fotos de recorrido para comenzar." : "Pulsa Analizar recorrido para buscar puntos 3D.")
+          : primeroConNube >= 0 ? "La nube está disponible en otro par de fotos."
+          : !resultado ? "Ningún par aportó suficientes coincidencias fiables para reconstruir."
+          : resultado.geometria.estado === "paralaje" ? "Se detectó paralaje, pero la triangulación no recuperó suficientes puntos estables."
+          : "Ningún par produjo una nube. Revisa el diagnóstico de geometría del par seleccionado."}</p>
+        {primeroConNube >= 0 && <button type="button" className="rounded-lg border px-3 py-2"
+          onClick={()=>{setIndice(primeroConNube);setPunto(0);}}>Ver par con nube 3D</button>}
+      </div>}
       {resultado && [resultado.i,resultado.j].map((numero,i) => {
         const foto=fotos[numero];
         const elegido=resultado.geometria.nube?.puntos[punto];
