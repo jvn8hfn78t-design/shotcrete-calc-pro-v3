@@ -1860,187 +1860,66 @@ Fecha: ${date}`;
     </div>
 </div>
 
-<div className="border-t border-border px-4 pb-5 pt-6 sm:px-6">
-  <p className="mb-4 text-sm font-extrabold uppercase tracking-widest text-foreground">
-    MEDICIONES
-  </p>
-
-<div className="space-y-6">
-  <div className="mb-2 flex items-center justify-between">
-    <span className="text-sm font-extrabold uppercase tracking-widest text-foreground">
-      ALTURA (H) <span className="text-steel">(m)</span>
-    </span>
-
-    <button
-      type="button"
-      onClick={() => addMeasurement(setH)}
-      className="flex h-8 items-center justify-center rounded-md bg-primary px-3 text-xs font-bold uppercase text-primary-foreground"
-    >
-      + AGREGAR
-    </button>
+<div className="border-t border-border px-4 pb-5 pt-5 sm:px-6">
+  <div className="mb-3 flex items-center justify-between gap-3">
+    <div>
+      <p className="text-sm font-bold uppercase tracking-wider text-foreground">MEDICIONES</p>
+      <p className="mt-1 text-xs text-muted-foreground">Ingresa las dimensiones en metros. Puedes añadir más lecturas.</p>
+    </div>
+    <span className="shrink-0 rounded-md bg-secondary px-2 py-1 text-[11px] font-bold text-muted-foreground">m</span>
   </div>
-
-  <div className="space-y-3">
-    {h.map((value, index) => (
-      <div key={index}>
-        <div className="mb-1">
-          <span className="text-xs font-bold text-muted-foreground">
-            ALTURA {index + 1} (H{index + 1})
-          </span>
+  <div className={`grid gap-2 ${mode === "resane" ? "grid-cols-2" : "grid-cols-3"}`}>
+    {([
+      { key: "h", label: "ALTURA", symbol: "H", values: h, setter: setH },
+      ...(mode === "avance" || mode === "malla"
+        ? [{ key: "a", label: "ANCHO", symbol: "A", values: a, setter: setA }]
+        : []),
+      { key: "l", label: "AVANCE", symbol: "L", values: l, setter: setL },
+    ] as const).map((item) => (
+      <div key={item.key} className="min-w-0 rounded-xl border border-border bg-background/60 p-2.5 sm:p-3">
+        <div className="mb-2 flex items-center justify-between gap-1">
+          <span className="truncate text-[11px] font-bold uppercase tracking-wide text-foreground sm:text-xs">{item.label}</span>
+          <button
+            type="button"
+            onClick={() => addMeasurement(item.setter)}
+            className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/15 text-lg font-bold text-primary hover:bg-primary/25"
+            aria-label={`Agregar medición de ${item.label.toLowerCase()}`}
+            title="Agregar medición"
+          >+</button>
         </div>
-
-        <div className="flex items-center gap-2">
-          <div className="w-full max-w-xs">
-            <Field
-  fieldKey="h"
-  value={value}
-  onChange={(v) => {
-  setH((values) =>
-    values.map((item, i) => (i === index ? v : item))
-  );
-  invalidateCalculation();
-}}
-/>
-          </div>
-
-          {h.length > 1 && (
-            <button
-              type="button"
-              onClick={() => removeMeasurement(setH, index)}
-              className="flex h-12 w-10 shrink-0 items-center justify-center rounded-lg border-2 border-input text-xl font-bold text-muted-foreground hover:border-destructive hover:text-destructive"
-              aria-label={`Eliminar H${index + 1}`}
-            >
-              −
-            </button>
-          )}
+        <div className="space-y-2">
+          {item.values.map((value, index) => (
+            <div key={index} className="min-w-0">
+              {item.values.length > 1 && <label className="mb-1 block text-[10px] font-semibold text-muted-foreground">{item.symbol}{index + 1}</label>}
+              <div className="flex min-w-0 items-center gap-1">
+                <div className="min-w-0 flex-1">
+                  <Field
+                    fieldKey={item.key}
+                    value={value}
+                    onChange={(v) => {
+                      item.setter((values: string[]) => values.map((old, i) => i === index ? v : old));
+                      invalidateCalculation();
+                    }}
+                  />
+                </div>
+                {item.values.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeMeasurement(item.setter, index)}
+                    className="flex h-10 w-6 shrink-0 items-center justify-center rounded-md text-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    aria-label={`Eliminar ${item.symbol}${index + 1}`}
+                  >−</button>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
-      </div>
-    ))}
-  </div>
-
-  <p className="mt-2 text-xs font-bold text-muted-foreground">
-    Promedio H: {average(h).toFixed(2)} m
-  </p>
-</div>
-                {mode === "avance" || mode === "malla" ? (
-  <div>
-  <div className="mb-2 flex items-center justify-between">
-    <span className="text-sm font-extrabold uppercase tracking-widest text-foreground">
-      ANCHO (A) <span className="text-steel">(m)</span>
-    </span>
-
-    <button
-      type="button"
-      onClick={() => addMeasurement(setA)}
-      className="flex h-8 items-center justify-center rounded-md bg-primary px-3 text-xs font-bold uppercase text-primary-foreground"
-    >
-      + AGREGAR
-    </button>
-  </div>
-
-  <div className="space-y-3">
-    {a.map((value, index) => (
-      <div key={index}>
-        <div className="mb-1">
-          <span className="text-xs font-bold text-muted-foreground">
-            ANCHO {index + 1} (A{index + 1})
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <div className="w-full max-w-xs">
-            <Field
-  fieldKey="a"
-  value={value}
-  onChange={(v) => {
-  setA((values) =>
-    values.map((item, i) => (i === index ? v : item))
-  );
-  invalidateCalculation();
-}}
-/>
-          </div>
-
-          {a.length > 1 && (
-            <button
-              type="button"
-              onClick={() => removeMeasurement(setA, index)}
-              className="flex h-12 w-10 shrink-0 items-center justify-center rounded-lg border-2 border-input text-xl font-bold text-muted-foreground hover:border-destructive hover:text-destructive"
-              aria-label={`Eliminar A${index + 1}`}
-            >
-              −
-            </button>
-          )}
+        <div className="mt-2 border-t border-border/70 pt-2 text-[10px] font-semibold text-muted-foreground sm:text-xs">
+          Prom. <span className="font-bold tabular-nums text-foreground">{average(item.values).toFixed(2)} m</span>
         </div>
       </div>
     ))}
   </div>
-
-  <p className="mt-2 text-xs font-bold text-muted-foreground">
-    Promedio A: {average(a).toFixed(2)} m
-  </p>
-</div>
-) : (
-  <div />
-)}
-
-        <div>
-  <div className="mb-2 flex items-center justify-between">
-    <span className="text-sm font-extrabold uppercase tracking-widest text-foreground">
-      AVANCE (L) <span className="text-steel">(m)</span>
-    </span>
-
-    <button
-      type="button"
-      onClick={() => addMeasurement(setL)}
-      className="flex h-8 items-center justify-center rounded-md bg-primary px-3 text-xs font-bold uppercase text-primary-foreground"
-    >
-      + AGREGAR
-    </button>
-  </div>
-
-  <div className="space-y-3">
-    {l.map((value, index) => (
-      <div key={index}>
-        <div className="mb-1">
-          <span className="text-xs font-bold text-muted-foreground">
-            AVANCE {index + 1} (L{index + 1})
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <div className="w-full max-w-xs">
-            <Field
-  fieldKey="l"
-  value={value}
-  onChange={(v) => {
-    setL((values) =>
-      values.map((item, i) => (i === index ? v : item))
-    );
-    invalidateCalculation();
-  }}
-/>
-          </div>
-
-          {l.length > 1 && (
-            <button
-              type="button"
-              onClick={() => removeMeasurement(setL, index)}
-              className="flex h-12 w-10 shrink-0 items-center justify-center rounded-lg border-2 border-input text-xl font-bold text-muted-foreground hover:border-destructive hover:text-destructive"
-              aria-label={`Eliminar L${index + 1}`}
-            >
-              −
-            </button>
-          )}
-        </div>
-      </div>
-    ))}
-  </div>
-
-  <p className="mt-2 text-xs font-bold text-muted-foreground">
-    Promedio L: {average(l).toFixed(2)} m
-  </p>
-</div>
 </div>
 {(mode === "avance" || mode === "malla") && (
   <div className="border-t border-border px-4 pb-5 pt-5 sm:px-6">
