@@ -3,7 +3,8 @@ import { RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
 
 type Point = { x: number; y: number; z: number };
 type Projected = { x: number; y: number; depth: number };
-type Face = { id: string; points: string; depth: number; color: string; stroke?: string };
+type Surface = "izquierdo" | "corona" | "derecho" | "tope";
+type Face = { id: string; points: string; depth: number; color: string; surface: Surface; stroke?: string };
 
 const hash = (a: number, b: number, c: number) => {
   const v = Math.sin(a * 127.1 + b * 311.7 + c * 74.7) * 43758.5453;
@@ -19,6 +20,7 @@ export function PilotoLabor3D({
   const [yaw, setYaw] = useState(17);
   const [pitch, setPitch] = useState(10);
   const [zoom, setZoom] = useState(1);
+  const [selected, setSelected] = useState<Surface | null>(null);
   const dragging = useRef<{ x: number; y: number; yaw: number; pitch: number } | null>(null);
 
   const faces = useMemo(() => {
@@ -59,10 +61,10 @@ export function PilotoLabor3D({
       Array.from({ length: n + 1 }, (_, j) => project(profile(j / n, i * L / steps, 0.045)))
     );
     const result: Face[] = [];
-    const add = (id: string, points: Projected[], color: string, stroke?: string) => {
+    const add = (id: string, points: Projected[], color: string, surface: Surface, stroke?: string) => {
       result.push({
         id, points: points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" "),
-        depth: points.reduce((sum, p) => sum + p.depth, 0) / points.length, color, stroke,
+        depth: points.reduce((sum, p) => sum + p.depth, 0) / points.length, color, surface, stroke,
       });
     };
 
@@ -72,12 +74,13 @@ export function PilotoLabor3D({
         const grain = hash(i, j, 1);
         const crown = j / n > wall / (2 * wall + Math.PI * r) &&
           j / n < (wall + Math.PI * r) / (2 * wall + Math.PI * r);
-        const base = crown ? 39 : 35;
-        const light = base + Math.round(grain * 13) + (j < n / 2 ? 3 : -2);
-        const color = `hsl(${crown ? 31 : 29} 11% ${light}%)`;
+        const surface: Surface = crown ? "corona" : j < n / 2 ? "izquierdo" : "derecho";
+        const base = crown ? 44 : surface === "izquierdo" ? 37 : 32;
+        const light = base + Math.round(grain * 16) + (j < n / 2 ? 2 : -1);
+        const color = `hsl(${crown ? 35 : 28} ${crown ? 17 : 12}% ${light}%)`;
         add(`rock-${i}-${j}`,
           [rows[i][j], rows[i + 1][j], rows[i + 1][j + 1], rows[i][j + 1]],
-          color, "rgba(15,17,18,0.13)");
+          color, surface, "rgba(15,17,18,0.16)");
       }
     }
 
@@ -94,15 +97,15 @@ export function PilotoLabor3D({
     for (let j = 0; j < n; j++) {
       const light = 33 + Math.round(hash(j, 3, 5) * 17);
       add(`face-outer-${j}`, [rows[steps][j], rows[steps][j + 1], inner[j + 1], inner[j]],
-        `hsl(30 10% ${light}%)`, "rgba(20,18,16,0.13)");
+        `hsl(22 16% ${light}%)`, "tope", "rgba(20,18,16,0.13)");
       add(`face-inner-${j}`, [inner[j], inner[j + 1], center],
-        `hsl(31 9% ${36 + Math.round(hash(j, 4, 5) * 15)}%)`, "rgba(20,18,16,0.11)");
+        `hsl(22 16% ${36 + Math.round(hash(j, 4, 5) * 15)}%)`, "tope", "rgba(20,18,16,0.11)");
     }
     // Deliberadamente SIN piso: el área inferior queda abierta.
     return result.sort((a, b) => b.depth - a.depth);
   }, [A, H, L, yaw, pitch, zoom]);
 
-  const reset = () => { setYaw(17); setPitch(10); setZoom(1); };
+  const reset = () => { setYaw(17); setPitch(10); setZoom(1); setSelected(null); };
 
   return (
     <section className="mt-5 overflow-hidden rounded-2xl border border-border bg-card">
@@ -110,7 +113,7 @@ export function PilotoLabor3D({
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">VISUALIZACIÓN DE LA LABOR</p>
           <h3 className="mt-1 font-display text-xl font-bold uppercase text-foreground">Hastiales · Corona · Tope</h3>
-          <p className="mt-1 text-xs text-muted-foreground">Geometría referencial de roca según las medidas ingresadas.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Superficies rocosas diferenciadas. Toca una zona para identificarla.</p>
         </div>
         <span className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-primary">Modelo referencial</span>
       </div>
@@ -151,14 +154,41 @@ export function PilotoLabor3D({
           <rect width="420" height="380" fill="url(#labor-background)" />
           <ellipse cx="210" cy="183" rx="165" ry="130" fill="url(#labor-light)" />
           {faces.map(face => (
-            <polygon key={face.id} points={face.points} fill={face.color}
-              stroke={face.stroke} strokeWidth="0.45" strokeLinejoin="round" />
+            <polygon key={face.id} points={face.points}
+              fill={selected === face.surface ? (face.surface === "tope" ? "#a97848" : face.surface === "corona" ? "#d0aa6a" : "#8eaaa9") : face.color}
+              fillOpacity={selected && selected !== face.surface ? 0.34 : 1}
+              stroke={selected === face.surface ? "#e8c68a" : face.stroke}
+              strokeWidth={selected === face.surface ? 0.85 : 0.45}
+              strokeLinejoin="round" />
           ))}
           <rect x="12" y="12" width="119" height="24" rx="6" fill="#101a20" fillOpacity="0.88" />
           <circle cx="25" cy="24" r="4" fill="#e3ae49" />
           <text x="36" y="28" fill="#e8e9e8" fontSize="10" fontWeight="bold">VISTA INTERACTIVA</text>
           <text x="16" y="363" fill="#c3cbd0" fontSize="11">Desliza para girar · Sin piso</text>
         </svg>
+      </div>
+
+      <div className="px-3 pt-3 sm:px-5">
+        <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Identificar superficies</p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {([
+            { key: "izquierdo", label: "Hastial izq.", color: "#8eaaa9" },
+            { key: "derecho", label: "Hastial der.", color: "#647e80" },
+            { key: "corona", label: "Corona", color: "#d0aa6a" },
+            { key: "tope", label: "Tope", color: "#a97848" },
+          ] as const).map(item => (
+            <button key={item.key} type="button"
+              aria-pressed={selected === item.key}
+              onClick={() => setSelected(current => current === item.key ? null : item.key)}
+              className={`flex min-h-10 items-center gap-2 rounded-lg border px-2.5 text-left text-xs font-semibold transition-colors ${selected === item.key ? "border-primary bg-primary/10 text-foreground" : "border-border bg-secondary/60 text-muted-foreground hover:text-foreground"}`}>
+              <span className="size-3 shrink-0 rounded-sm" style={{ backgroundColor: item.color }} />
+              {item.label}
+            </button>
+          ))}
+        </div>
+        {selected && <p className="mt-2 text-xs text-primary" aria-live="polite">
+          {selected === "corona" ? "Corona: bóveda superior de la labor." : selected === "tope" ? "Tope: frente de excavación al final del avance." : selected === "izquierdo" ? "Hastial izquierdo: pared lateral izquierda." : "Hastial derecho: pared lateral derecha."}
+        </p>}
       </div>
 
       <div className="grid grid-cols-3 gap-2 px-3 pt-3 sm:px-5">
@@ -190,7 +220,7 @@ export function PilotoLabor3D({
       </div>
       <p className="px-4 pb-4 text-[11px] leading-relaxed text-muted-foreground sm:px-5">
         Superficies mostradas: hastial izquierdo, hastial derecho, corona y tope. No incluye piso.
-        El relieve rocoso es ilustrativo, no proviene de fotogrametría y no modifica el cálculo de shotcrete.
+        Los colores y el relieve sirven para identificar zonas; no son mediciones de roca ni fotogrametría. No modifican el cálculo de shotcrete.
       </p>
     </section>
   );
