@@ -1,3 +1,4 @@
+import { UnionTresVistas } from "./UnionTresVistas";
 import { VistaNube } from "./VistaNube";
 import type { Diagnostico } from "../lib/geometria-camaras";
 import { useEffect, useRef, useState } from "react";
@@ -93,6 +94,7 @@ export function CorrespondenciasFotos({ fotos }: { fotos: Foto[] }) {
         {ocupado ? "ANALIZANDO..." : "ANALIZAR RECORRIDO"}
       </button>
       <p role="status" className="text-sm">{fotos.length<2 ? "Agrega dos fotografías de recorrido." : mensaje}</p>
+      {completo && <UnionTresVistas lista={lista} medidas={tamanos}/>}
       {resultado && <label className="block text-sm">Par de fotos
         <select className="block w-full rounded-lg border bg-background p-2" value={indice} onChange={e=>{setIndice(Number(e.target.value));setPunto(0);}}>
           {lista.map((r,k)=><option key={r.i+"-"+r.j} value={k}>Fotos {r.i+1} y {r.j+1} · {r.pares.length} puntos{r.geometria.nube ? ` · nube 3D (${r.geometria.nube.puntos.length})` : r.geometria.estado === 'paralaje' ? ' · posible profundidad' : ''}</option>)}
