@@ -7,6 +7,7 @@ const MAX_DURACION = 45;
 
 export function CapturaVideo3D({ onFotogramas, disponibles }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const grabarRef = useRef<HTMLInputElement>(null);
   const [procesando, setProcesando] = useState(false);
   const [estado, setEstado] = useState("Graba o selecciona un video corto recorriendo el objeto.");
   const ocupado = useRef(false);
@@ -67,6 +68,7 @@ export function CapturaVideo3D({ onFotogramas, disponibles }: Props) {
       video.load();
       URL.revokeObjectURL(url);
       if (inputRef.current) inputRef.current.value = "";
+      if (grabarRef.current) grabarRef.current.value = "";
       ocupado.current = false;
       setProcesando(false);
     }
@@ -78,8 +80,19 @@ export function CapturaVideo3D({ onFotogramas, disponibles }: Props) {
       Graba un video corto desplazándote alrededor del objeto. El teléfono extraerá fotogramas
       sin subir el video a internet. Se usa el analizador fotogramétrico experimental existente.
     </p>
-    <input ref={inputRef} type="file" accept="video/*" className="block w-full text-sm"
-      disabled={procesando || disponibles === 0}
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <button type="button" className="h-14 rounded-lg bg-primary px-3 font-bold text-primary-foreground disabled:opacity-50"
+        disabled={procesando || disponibles === 0} onClick={() => grabarRef.current?.click()}>
+        GRABAR VIDEO 3D
+      </button>
+      <button type="button" className="h-14 rounded-lg border border-border bg-secondary px-3 font-bold disabled:opacity-50"
+        disabled={procesando || disponibles === 0} onClick={() => inputRef.current?.click()}>
+        ELEGIR VIDEO DE GALERÍA
+      </button>
+    </div>
+    <input ref={grabarRef} type="file" accept="video/*" capture="environment" hidden
+      onChange={e => { const file = e.target.files?.[0]; if (file) void extraer(file); }} />
+    <input ref={inputRef} type="file" accept="video/*" hidden
       onChange={e => { const file = e.target.files?.[0]; if (file) void extraer(file); }} />
     <p role="status" className="text-sm">{estado}</p>
     <p className="text-xs text-muted-foreground">
