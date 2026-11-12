@@ -6,81 +6,98 @@ type Foto = { id: string; file: Blob; preview: string };
 type Punto = { x: number; y: number };
 type Par = { a: Punto; b: Punto };
 
-export function CorrespondenciasFotos({ fotos }: { fotos: Foto[] }) {
-  const [mensaje, setMensaje] = useState("");
-  const [ocupado, setOcupado] = useState(false);
-  const [resultado, setResultado] = useState<{ ancho: number; alto: number; pares: Par[] } | null>(null);
-  const activo = useRef(false);
-  const workerRef = useRef<Worker | null>(null);
-  const timer = useRef<number | undefined>(undefined);
+type Resultado = { i:number; j:number; pares:Par[]; candidatos:number };
+type Tamano = { ancho:number; alto:number };
 
-  useEffect(() => {
-    activo.current = true;
-    return () => {
-      activo.current = false;
-      window.clearTimeout(timer.current);
-      workerRef.current?.terminate();
+function procesar<T>(worker:Worker, orden:unknown, signal:AbortSignal, transfer:Transferable[]=[]):Promise<T> {
+  return new Promise((resolve,reject) => {
+    signal.throwIfAborted();
+    const terminar=() => {
+      clearTimeout(timer);
+      signal.removeEventListener("abort",abortar);
+      worker.onmessage=null;
+      worker.onerror=null;
+      worker.onmessageerror=null;
     };
-  }, []);
+    const fallar=(mensaje:string) => { terminar(); reject(new Error(mensaje)); };
+    const abortar=() => fallar("Análisis cancelado.");
+    const timer=window.setTimeout(()=>fallar("El procesamiento superó un minuto por operación."),60000);
+    signal.addEventListener("abort",abortar,{once:true});
+    worker.onmessage=e=>{ terminar(); resolve(e.data as T); };
+    worker.onerror=worker.onmessageerror=()=>fallar("No se pudo procesar este recorrido.");
+    try { worker.postMessage(orden,transfer); }
+    catch (error) { terminar(); reject(error); }
+  });
+}
 
+export function CorrespondenciasFotos({ fotos }: { fotos: Foto[] }) {
+  const [mensaje,setMensaje]=useState("");
+  const [ocupado,setOcupado]=useState(false);
+  const [lista,setLista]=useState<Resultado[]>([]);
+  const [indice,setIndice]=useState(0);
+  const [tamanos,setTamanos]=useState<Tamano[]>([]);
+  const tarea=useRef<AbortController|null>(null);
+  useEffect(()=>()=>{ tarea.current?.abort(); },[]);
   async function comparar() {
-    if (ocupado || fotos.length < 2) return;
-    setOcupado(true);
-    setResultado(null);
-    setMensaje("Leyendo las fotografías...");
-    function terminar(texto: string) {
-      window.clearTimeout(timer.current);
-      workerRef.current?.terminate();
-      workerRef.current = null;
-      if (activo.current) {
-        setMensaje(texto);
-        setOcupado(false);
-      }
-    }
+    if (tarea.current || fotos.length<2) return;
+    const control=new AbortController();
+    tarea.current=control;
+    setOcupado(true); setLista([]); setIndice(0);
+    let worker:Worker|undefined;
     try {
-      const primera = await leerFoto(fotos[0].file);
-      if (!activo.current) return;
-      const segunda = await leerFoto(fotos[1].file);
-      if (!activo.current) return;
-      if (primera.ancho !== segunda.ancho || primera.alto !== segunda.alto)
-        throw new Error("Usa dos fotos con la misma orientación y proporción.");
-      const worker = new Comparador();
-      workerRef.current = worker;
-      setMensaje("Buscando puntos comunes...");
-      worker.onmessage = (event: MessageEvent<{ pares: Par[]; escala: number; candidatos: number; detallesA: number; detallesB: number }>) => {
-        if (!activo.current) return;
-        const { pares, escala, candidatos, detallesA, detallesB } = event.data;
-        setResultado({ ancho: primera.ancho, alto: primera.alto, pares });
-        terminar(pares.length
-          ? `${pares.length} coincidencias candidatas${escala === 2 ? " en la vista reducida" : ""}. Compara los números en ambas fotos.`
-          : `Detalles detectados: foto 1: ${detallesA}, foto 2: ${detallesB}. Pares aceptados en la primera pasada: ${candidatos}. Se necesitan al menos 3 en una misma pasada.`);
-      };
-      worker.onerror = worker.onmessageerror = () => terminar("No se pudo completar la comparación.");
-      timer.current = window.setTimeout(() => terminar("La comparación superó un minuto. Puedes reintentar."), 60000);
-      worker.postMessage({ primera, segunda }, [primera.datos.buffer, segunda.datos.buffer]);
+      worker=new Comparador();
+      const medidas:Tamano[]=[];
+      for (let i=0;i<fotos.length;i++) {
+        setMensaje(`Preparando foto ${i+1} de ${fotos.length}…`);
+        const t=await leerFoto(fotos[i].file);
+        control.signal.throwIfAborted();
+        medidas.push({ancho:t.ancho,alto:t.alto});
+        await procesar(worker,{tipo:"foto",indice:i,trama:t},control.signal,[t.datos.buffer]);
+      }
+      const total=fotos.length*(fotos.length-1)/2;
+      const resultados:Resultado[]=[];
+      let hechos=0;
+      for (let i=0;i<fotos.length;i++) {
+        for (let j=i+1;j<fotos.length;j++) {
+          setMensaje(`Comparando par ${++hechos} de ${total}…`);
+          const r=await procesar<Resultado>(worker,{tipo:"comparar",i,j},control.signal);
+          if (r.pares.length) resultados.push(r);
+        }
+      }
+      resultados.sort((a,b)=>b.pares.length-a.pares.length);
+      setTamanos(medidas); setLista(resultados);
+      setMensaje(`${resultados.length} de ${total} pares de fotos con al menos cinco puntos compatibles.`);
     } catch (error) {
-      terminar(error instanceof Error ? error.message : "No se pudo leer el par.");
+      if (!control.signal.aborted) setMensaje(error instanceof Error ? error.message : "Error al analizar las fotos.");
+    } finally {
+      worker?.terminate();
+      tarea.current=null;
+      if (!control.signal.aborted) setOcupado(false);
     }
   }
-
-  const visibles = resultado?.pares.filter((_, i, pares) =>
-    i % Math.max(1, Math.ceil(pares.length / 16)) === 0
-  ) ?? [];
+  const resultado=lista[indice];
+  const visibles=resultado?.pares.filter((_,i,pares)=>i%Math.max(1,Math.ceil(pares.length/16))===0) ?? [];
   return (
     <section className="space-y-3 rounded-xl border border-border bg-card p-4">
       <h3 className="font-bold uppercase">Puntos comunes del recorrido</h3>
-      <p className="text-sm text-muted-foreground">Compara las dos primeras fotos de recorrido en el orden del levantamiento.</p>
-      <button type="button" disabled={ocupado || fotos.length < 2} onClick={() => void comparar()}
+      <button type="button" disabled={ocupado || fotos.length<2} onClick={()=>void comparar()}
         className="h-12 w-full rounded-lg bg-primary font-bold text-primary-foreground disabled:opacity-50">
-        {ocupado ? "COMPARANDO..." : "COMPARAR DOS FOTOS"}
+        {ocupado ? "ANALIZANDO..." : "ANALIZAR RECORRIDO"}
       </button>
-      <p role="status" className="text-sm">{fotos.length < 2 ? "Agrega dos fotografías de recorrido." : mensaje}</p>
-      {resultado && fotos.map((foto, i) => (
+      <p role="status" className="text-sm">{fotos.length<2 ? "Agrega dos fotografías de recorrido." : mensaje}</p>
+      {resultado && <label className="block text-sm">Par de fotos
+        <select className="block w-full rounded-lg border bg-background p-2" value={indice} onChange={e=>setIndice(Number(e.target.value))}>
+          {lista.map((r,k)=><option key={r.i+"-"+r.j} value={k}>Fotos {r.i+1} y {r.j+1} · {r.pares.length} puntos</option>)}
+        </select>
+      </label>}
+      {resultado && [resultado.i,resultado.j].map((numero,i) => {
+        const foto=fotos[numero];
+        const { ancho,alto }=tamanos[numero];
+        return (
         <figure key={foto.id}>
-          <figcaption>Recorrido · Foto {i + 1}</figcaption>
-          <svg viewBox={`0 0 ${resultado.ancho} ${resultado.alto}`} className="block h-auto w-full rounded-lg"
-            role="img" aria-label={`Coincidencias en la foto ${i + 1}`}>
-            <image href={foto.preview} width={resultado.ancho} height={resultado.alto} />
+          <figcaption>Recorrido · Foto {numero+1}</figcaption>
+          <svg viewBox={`0 0 ${ancho} ${alto}`} className="block h-auto w-full rounded-lg" role="img" aria-label={`Foto ${numero+1} con puntos comunes`}>
+            <image href={foto.preview} width={ancho} height={alto} />
             {visibles.map((par, j) => {
               const p = i === 0 ? par.a : par.b;
               return <g key={j}>
@@ -91,7 +108,7 @@ export function CorrespondenciasFotos({ fotos }: { fotos: Foto[] }) {
             })}
           </svg>
         </figure>
-      ))}
+      ); })}
     </section>
   );
 }

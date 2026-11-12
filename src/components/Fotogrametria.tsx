@@ -312,7 +312,7 @@ const addPhotos = (files: FileList | null) => {
     });
   };
 
-  const parRecorrido = photos.filter(foto => (foto.grupoCaptura ?? "recorrido") === "recorrido").slice(0, 2);
+  const parRecorrido = photos.filter(foto => (foto.grupoCaptura ?? "recorrido") === "recorrido");
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">

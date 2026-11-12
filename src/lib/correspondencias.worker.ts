@@ -170,20 +170,68 @@ function reducir(f: Trama): Trama {
   return { ancho, alto, datos };
 }
 
-self.onmessage = (e: MessageEvent<{ primera: Trama; segunda: Trama }>) => {
-  const { primera, segunda } = e.data;
-  const a = extraer(primera), b = extraer(segunda);
-  let pares = emparejar(a,b);
-  let escala = 1;
-  if (pares.length < 3 && Math.min(primera.ancho, primera.alto) >= 72) {
-    const alternativos = emparejar(extraer(reducir(primera),true), extraer(reducir(segunda),true), true);
-    if (alternativos.length >= 3) {
-      const ampliar = (p: Punto) => ({ x:2*p.x+0.5, y:2*p.y+0.5 });
-      pares = alternativos.map(p => ({ a: ampliar(p.a), b: ampliar(p.b) }));
-      escala = 2;
+type Par = { a: Punto; b: Punto };
+
+// Consenso afín para una superficie local con perspectiva moderada.
+function verificar(pares: Par[]) {
+  if (pares.length < 5) return [];
+  let mejores: Par[] = [];
+  let menorError = Infinity;
+  function probar(i: number, j: number, k: number) {
+    const [p,q,r] = [pares[i],pares[j],pares[k]];
+    const ux=q.a.x-p.a.x, uy=q.a.y-p.a.y, vx=r.a.x-p.a.x, vy=r.a.y-p.a.y;
+    const det=ux*vy-uy*vx;
+    if (Math.abs(det)<40) return;
+    const bx=q.b.x-p.b.x, by=q.b.y-p.b.y, cx=r.b.x-p.b.x, cy=r.b.y-p.b.y;
+    const escala=(bx*cy-by*cx)/det;
+    if (escala<0.2 || escala>5) return;
+    const grupo: Par[] = [];
+    let error=0;
+    for (const par of pares) {
+      const x=par.a.x-p.a.x, y=par.a.y-p.a.y;
+      const u=(x*vy-y*vx)/det, v=(ux*y-uy*x)/det;
+      const e=(p.b.x+u*bx+v*cx-par.b.x)**2+(p.b.y+u*by+v*cy-par.b.y)**2;
+      if (e<=9) { grupo.push(par); error+=e; }
+    }
+    if (grupo.length>mejores.length || (grupo.length===mejores.length && error<menorError)) {
+      mejores=grupo; menorError=error;
     }
   }
-  self.postMessage({ pares: pares.length >= 3 ? pares : [], escala, candidatos: pares.length,
-    detallesA: a.esquinas.length+a.manchas.length, detallesB: b.esquinas.length+b.manchas.length });
+  const n=pares.length;
+  if (n<=12) {
+    for (let i=0;i<n;i++) for (let j=i+1;j<n;j++) for (let k=j+1;k<n;k++) probar(i,j,k);
+  } else {
+    let semilla=42;
+    function indice() { semilla=(Math.imul(1664525,semilla)+1013904223)>>>0; return Math.floor(semilla/4294967296*n); }
+    for (let t=0;t<240;t++) {
+      const i=indice(), j=indice(), k=indice();
+      if (i!==j && j!==k && i!==k) probar(i,j,k);
+    }
+  }
+  return mejores.length>=Math.max(5,Math.ceil(n*0.35)) ? mejores : [];
+}
+
+type Rasgos = ReturnType<typeof extraer>;
+const fotos = new Map<number,{ ancho:number; alto:number; normal:Rasgos; reducida:Rasgos }>();
+type Orden = { tipo:"foto"; indice:number; trama:Trama } | { tipo:"comparar"; i:number; j:number };
+
+self.onmessage = (e:MessageEvent<Orden>) => {
+  const orden=e.data;
+  if (orden.tipo==="foto") {
+    const t=orden.trama;
+    fotos.set(orden.indice,{ancho:t.ancho,alto:t.alto,normal:extraer(t),reducida:extraer(reducir(t),true)});
+    self.postMessage(null);
+    return;
+  }
+  const a=fotos.get(orden.i)!, b=fotos.get(orden.j)!;
+  let candidatos=emparejar(a.normal,b.normal);
+  let pares=verificar(candidatos);
+  if (!pares.length) {
+    const ampliar=(p:Punto)=>({x:2*p.x+0.5,y:2*p.y+0.5});
+    const otros=emparejar(a.reducida,b.reducida,true).map(p=>({a:ampliar(p.a),b:ampliar(p.b)}));
+    const verificados=verificar(otros);
+    if (verificados.length) { candidatos=otros; pares=verificados; }
+  }
+  self.postMessage({i:orden.i,j:orden.j,pares,candidatos:candidatos.length});
 };
 export {};
