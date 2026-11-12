@@ -1,6 +1,7 @@
 import { CorrespondenciasFotos } from "./CorrespondenciasFotos";
 import { PilotoLabor3D } from "./PilotoLabor3D";
 import { CapturaVideo3D } from "./CapturaVideo3D";
+import { EscaneoContinuo3D } from "./EscaneoContinuo3D";
 import { useEffect, useRef, useState } from "react";
 import { DiagnosticoDispositivo } from "./DiagnosticoDispositivo";
 import { PruebaRendimiento } from "./PruebaRendimiento";
@@ -489,6 +490,8 @@ const agregarArchivos = (files: File[]) => {
             {photos.length}/{MAX_PHOTOS}
           </span>
         </div>
+
+        <EscaneoContinuo3D disponibles={MAX_PHOTOS - photos.length} onFotogramas={agregarArchivos} />
 
         <CapturaVideo3D disponibles={MAX_PHOTOS - photos.length} onFotogramas={agregarArchivos} />
 
