@@ -11,7 +11,11 @@ import {
   Camera,
   ImagePlus,
   X,
-  Settings,
+  ArrowDownToLine,
+  ArrowUpRight,
+  Box,
+  Ruler,
+  Share2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -176,9 +180,10 @@ interface FieldProps {
   fieldKey: FieldKey;
   value: string;
   onChange: (v: string) => void;
+  label: string;
 }
 
-function Field({ fieldKey, value, onChange }: FieldProps) {
+function Field({ fieldKey, value, onChange, label }: FieldProps) {
   const error = fieldError(fieldKey, value);
 
   return (
@@ -190,6 +195,7 @@ function Field({ fieldKey, value, onChange }: FieldProps) {
         step="any"
         value={value}
         placeholder="0.00"
+        aria-label={label}
         aria-invalid={!!error}
         onChange={(e) => onChange(e.target.value)}
         className={`h-12 w-full min-w-0 rounded-lg border bg-background px-2 text-base font-bold tabular-nums sm:px-3 sm:text-xl text-foreground outline-none transition-colors placeholder:text-muted-foreground/40 focus:ring-2 focus:ring-primary/20 ${
@@ -221,7 +227,7 @@ function ResultCard({
 }) {
   return (
     <div
-  className={`min-w-0 rounded-xl border p-3.5 sm:p-5 ${
+  className={`result-card min-w-0 rounded-xl border p-3.5 sm:p-5 ${
     highlight
       ? "border-primary/50 bg-primary/10"
       : mediumHighlight
@@ -1658,725 +1664,917 @@ Fecha: ${date}`;
   };
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-      <div className="h-1 bg-primary" />
-      <div className="relative flex min-h-20 items-center border-b border-border px-4 py-4 sm:px-6">
-  <div className="pr-12">
-    <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary">01 · CUBICACIÓN</p>
-    <h2 className="mt-1 font-display text-2xl font-bold uppercase tracking-tight text-foreground sm:text-3xl">Calculadora de shotcrete</h2>
-    <p className="mt-1 text-xs text-muted-foreground">Registra las medidas y obtiene el volumen de aplicación.</p>
-  </div>
-
-  <div className="absolute right-3 top-3">
-    <button
-      type="button"
-      onClick={() => setShowMenu((value) => !value)}
-      aria-label="Abrir menú"
-      aria-expanded={showMenu}
-      className="flex h-11 w-11 items-center justify-center rounded-lg text-2xl font-bold text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-    >
-      ⋮
-    </button>
-
-    {showMenu && (
-      <div className="absolute right-0 z-50 mt-1 w-48 overflow-hidden rounded-lg border-2 border-border bg-card shadow-xl">
-        <button
-          type="button"
-          onClick={() => {
-            setShowRendimientos(true);
-            setShowMenu(false);
-          }}
-          className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-bold text-foreground transition-colors hover:bg-secondary"
-        >
-          <span className="text-base">⚙</span>
-          <span>Rendimientos</span>
-        </button>
-      </div>
-    )}
-  </div>
-</div>
-
-{showRendimientos && (
-  <div className="border-t-2 border-border bg-secondary/40 px-4 py-4 sm:px-6">
-    <div className="mb-4 flex items-center justify-between">
-      <div>
-        <p className="text-sm font-extrabold uppercase tracking-widest text-foreground">
-          RENDIMIENTOS
-        </p>
-        <p className="mt-1 text-xs font-semibold text-muted-foreground">
-          m² por m³ según espesor
-        </p>
-      </div>
-
-      <button
-        type="button"
-        onClick={() => setShowRendimientos(false)}
-        className="flex h-9 w-9 items-center justify-center rounded-lg border-2 border-input text-xl font-bold text-muted-foreground hover:border-destructive hover:text-destructive"
-        aria-label="Cerrar rendimientos"
-      >
-        ×
-      </button>
-    </div>
-
-    <div className="space-y-2">
-      {["1", "1.5", "2", "3", "4"].map((key) => (
-        <div
-          key={key}
-          className="flex items-center justify-between gap-3 rounded-lg border-2 border-input bg-background px-3 py-2"
-        >
-          <span className="text-sm font-bold text-foreground">
-            {key}"
-          </span>
-
-          <input
-            type="number"
-            inputMode="decimal"
-            min="0.01"
-            step="any"
-            value={rendimientosDraft[key] ?? ""}
-            onChange={(e) => {
-              setRendimientosDraft((current) => ({
-                ...current,
-                [key]: e.target.value,
-              }));
-              invalidateCalculation();
-            }}
-            className="h-10 w-28 rounded-lg border-2 border-input bg-secondary px-3 text-right text-base font-bold tabular-nums text-foreground outline-none focus:border-primary"
-          />
-
-          <span className="w-12 text-xs font-bold text-muted-foreground">
-            m²/m³
-          </span>
+    <div className="calculator-workbench">
+      <div className="workbench-title relative flex min-h-20 items-center px-4 py-4 sm:px-6">
+        <div className="pr-12">
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary">
+            01 / CUBICACIÓN
+          </p>
+          <h2 className="mt-1 font-display text-2xl font-bold uppercase tracking-tight text-foreground sm:text-3xl">
+            Calculadora de shotcrete
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Configura la aplicación. Registra las medidas. Calcula.
+          </p>
         </div>
-      ))}
-    </div>
 
-    <div className="mt-4 grid grid-cols-2 gap-2">
-      <button
-        type="button"
-        onClick={resetRendimientos}
-        className="h-11 rounded-lg border-2 border-input bg-transparent text-xs font-bold uppercase text-muted-foreground hover:border-destructive hover:text-destructive"
-      >
-        Restablecer
-      </button>
-
-      <button
-        type="button"
-        onClick={saveRendimientos}
-        className="h-11 rounded-lg bg-primary text-xs font-bold uppercase text-primary-foreground hover:brightness-110"
-      >
-        Guardar
-      </button>
-    </div>
-  </div>
-)}
-
-      {/* Mode switcher */}
-<div className="px-4 pb-5 pt-5 sm:px-6">
-  <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
-    USO
-  </p>
-
-  <div className="grid grid-cols-3 gap-1.5 rounded-xl border border-border bg-background p-1.5">
-    {(["avance", "resane", "malla"] as Mode[]).map((m) => (
-          <button
-            key={m}
-            onClick={() => {
-  setMode(m);
-  setH([""]);
-  setA([""]);
-  setL([""]);
-  setCalculated(false);
-  setResult(null);
-  setPhotos([]);
-}}
-            className={`min-h-12 rounded-lg px-1 font-display text-lg font-bold uppercase tracking-wide transition-colors sm:text-xl ${
-              mode === m
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-            }`}
-          >
-            {m}
-          </button>
-                ))}
-      </div>
-</div>
-
-{/* Datos del operador */}
-<div className="relative border-t border-border px-4 pb-5 pt-5 sm:px-6">
-  <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
-    01 · DATOS DEL OPERADOR
-  </p>
-
-  <div>
-    <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-muted-foreground">
-      OPERADOR
-    </label>
-
-    <input
-      type="text"
-      value={operador}
-      onChange={(e) => setOperador(e.target.value)}
-      placeholder=""
-      className="h-12 w-full min-w-0 rounded-lg border border-input bg-background px-3 text-base font-medium text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15"
-    />
-  </div>
-</div>
-
-{/* Inputs */}
-<div className="border-t border-border px-4 pb-5 pt-5 sm:px-6">
-  <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
-    02 · DATOS DE LA LABOR
-  </p>
-
-  <div className="grid grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] gap-3">
-    <div>
-      <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-muted-foreground">
-        NIVEL
-      </label>
-
-      <input
-        type="text"
-        value={nivel}
-        onChange={(e) => setNivel(e.target.value)}
-        placeholder=""
-        className="h-12 w-full min-w-0 rounded-lg border border-input bg-background px-3 text-base font-medium text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15"
-      />
-    </div>
-
-    <div>
-      <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-muted-foreground">
-        LABOR
-      </label>
-
-      <input
-        type="text"
-        value={labor}
-        onChange={(e) => setLabor(e.target.value)}
-        placeholder=""
-        className="h-12 w-full min-w-0 rounded-lg border border-input bg-background px-3 text-base font-medium text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15"
-      />
-    </div>
-    </div>
-</div>
-
-<div className="border-t border-border px-4 pb-5 pt-5 sm:px-6">
-  <div className="mb-3 flex items-center justify-between gap-3">
-    <div>
-      <p className="text-sm font-bold uppercase tracking-wider text-foreground">MEDICIONES</p>
-      <p className="mt-1 text-xs text-muted-foreground">Ingresa las dimensiones en metros. Puedes añadir más lecturas.</p>
-    </div>
-    <span className="shrink-0 rounded-md bg-secondary px-2 py-1 text-[11px] font-bold text-muted-foreground">m</span>
-  </div>
-  <div className={`grid gap-2 ${mode === "resane" ? "grid-cols-2" : "grid-cols-3"}`}>
-    {([
-      { key: "h", label: "ALTURA", symbol: "H", values: h, setter: setH },
-      ...(mode === "avance" || mode === "malla"
-        ? [{ key: "a", label: "ANCHO", symbol: "A", values: a, setter: setA }]
-        : []),
-      { key: "l", label: "AVANCE", symbol: "L", values: l, setter: setL },
-    ] as const).map((item) => (
-      <div key={item.key} className="min-w-0 rounded-xl border border-border bg-background/60 p-2.5 sm:p-3">
-        <div className="mb-2 flex items-center justify-between gap-1">
-          <span className="truncate text-[11px] font-bold uppercase tracking-wide text-foreground sm:text-xs">{item.label}</span>
+        <div className="absolute right-3 top-3">
           <button
             type="button"
-            onClick={() => addMeasurement(item.setter)}
-            className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/15 text-lg font-bold text-primary hover:bg-primary/25"
-            aria-label={`Agregar medición de ${item.label.toLowerCase()}`}
-            title="Agregar medición"
-          >+</button>
+            onClick={() => setShowMenu((value) => !value)}
+            aria-label="Abrir menú de configuración"
+            aria-expanded={showMenu}
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-2xl font-bold text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          >
+            ⋮
+          </button>
+
+          {showMenu && (
+            <div className="settings-menu absolute right-0 z-20 mt-1 w-48 overflow-hidden rounded-xl border border-border bg-popover">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowRendimientos(true);
+                  setShowMenu(false);
+                }}
+                className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-bold text-foreground transition-colors hover:bg-secondary"
+              >
+                <Ruler className="size-4" aria-hidden="true" />
+                <span>Rendimientos</span>
+              </button>
+            </div>
+          )}
         </div>
-        <div className="space-y-2">
-          {item.values.map((value, index) => (
-            <div key={index} className="min-w-0">
-              {item.values.length > 1 && <label className="mb-1 block text-[10px] font-semibold text-muted-foreground">{item.symbol}{index + 1}</label>}
-              <div className="flex min-w-0 items-center gap-1">
-                <div className="min-w-0 flex-1">
-                  <Field
-                    fieldKey={item.key}
-                    value={value}
-                    onChange={(v) => {
-                      item.setter((values: string[]) => values.map((old, i) => i === index ? v : old));
-                      invalidateCalculation();
-                    }}
-                  />
+      </div>
+
+      <div className="workbench-columns">
+        <div className="input-panel">
+          <div className="panel-caption">
+            <span>ENTRADA DE DATOS</span>
+            <span>METROS / PULGADAS</span>
+          </div>
+          {showRendimientos && (
+            <div className="border-t-2 border-border bg-secondary/40 px-4 py-4 sm:px-6">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-extrabold uppercase tracking-widest text-foreground">
+                    RENDIMIENTOS
+                  </p>
+                  <p className="mt-1 text-xs font-semibold text-muted-foreground">
+                    m² por m³ según espesor
+                  </p>
                 </div>
-                {item.values.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeMeasurement(item.setter, index)}
-                    className="flex h-10 w-6 shrink-0 items-center justify-center rounded-md text-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                    aria-label={`Eliminar ${item.symbol}${index + 1}`}
-                  >−</button>
-                )}
+
+                <button
+                  type="button"
+                  onClick={() => setShowRendimientos(false)}
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border-2 border-input text-xl font-bold text-muted-foreground hover:border-destructive hover:text-destructive"
+                  aria-label="Cerrar rendimientos"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                {["1", "1.5", "2", "3", "4"].map((key) => (
+                  <div
+                    key={key}
+                    className="flex items-center justify-between gap-3 rounded-lg border-2 border-input bg-background px-3 py-2"
+                  >
+                    <span className="text-sm font-bold text-foreground">
+                      {key}"
+                    </span>
+
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min="0.01"
+                      step="any"
+                      aria-label={`Rendimiento para ${key} pulgadas en m² por m³`}
+                      value={rendimientosDraft[key] ?? ""}
+                      onChange={(e) => {
+                        setRendimientosDraft((current) => ({
+                          ...current,
+                          [key]: e.target.value,
+                        }));
+                        invalidateCalculation();
+                      }}
+                      className="h-10 w-28 rounded-lg border-2 border-input bg-secondary px-3 text-right text-base font-bold tabular-nums text-foreground outline-none focus:border-primary"
+                    />
+
+                    <span className="w-12 text-xs font-bold text-muted-foreground">
+                      m²/m³
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={resetRendimientos}
+                  className="h-11 rounded-lg border-2 border-input bg-transparent text-xs font-bold uppercase text-muted-foreground hover:border-destructive hover:text-destructive"
+                >
+                  Restablecer
+                </button>
+
+                <button
+                  type="button"
+                  onClick={saveRendimientos}
+                  className="h-11 rounded-lg bg-primary text-xs font-bold uppercase text-primary-foreground hover:brightness-110"
+                >
+                  Guardar
+                </button>
               </div>
             </div>
-          ))}
-        </div>
-        <div className="mt-2 border-t border-border/70 pt-2 text-[10px] font-semibold text-muted-foreground sm:text-xs">
-          Prom. <span className="font-bold tabular-nums text-foreground">{average(item.values).toFixed(2)} m</span>
-        </div>
-      </div>
-    ))}
-  </div>
-</div>
-{(mode === "avance" || mode === "malla") && (
-  <div className="border-t border-border px-4 pb-5 pt-5 sm:px-6">
-    <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
-      04 · PARÁMETRO DEL CÁLCULO
-    </p>
+          )}
 
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background/60 px-3 py-2.5 sm:px-4">
-      <label
-        htmlFor="espesor"
-        className="text-sm font-extrabold uppercase tracking-wide text-foreground"
-      >
-        ESPESOR <span className="text-steel">(pulg)</span>
-      </label>
+          {/* Mode switcher */}
+          <div className="px-4 pb-5 pt-5 sm:px-6">
+            <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
+              TIPO DE APLICACIÓN
+            </p>
 
-      <select
-        id="espesor"
-        value={espesor}
-        onChange={(e) => {
-          setEspesor(e.target.value);
-          invalidateCalculation();
-        }}
-        className="h-11 w-28 rounded-lg border border-input bg-card px-3 text-center text-lg font-bold tabular-nums text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
-      >
-        <option value="1">1"</option>
-        <option value="1.5">1.5"</option>
-        <option value="2">2"</option>
-        <option value="3">3"</option>
-        <option value="4">4"</option>
-      </select>
-    </div>
-  </div>
-)}
+            <div className="grid grid-cols-3 gap-1.5 rounded-xl border border-border bg-background p-1.5">
+              {(["avance", "resane", "malla"] as Mode[]).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => {
+                    setMode(m);
+                    setH([""]);
+                    setA([""]);
+                    setL([""]);
+                    setCalculated(false);
+                    setResult(null);
+                    setPhotos([]);
+                  }}
+                  aria-pressed={mode === m}
+                  className={`mode-tab min-h-12 rounded-lg px-1 text-xs font-semibold capitalize tracking-wide transition-colors ${
+                    mode === m
+                      ? "bg-secondary text-primary shadow-sm"
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  }`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          </div>
 
-<div className="border-t-2 border-border px-4 pb-4 pt-5 sm:px-6">
-  <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
-    OBSERVACIONES
-  </p>
+          {/* Datos del operador */}
+          <div className="relative border-t border-border px-4 pb-5 pt-5 sm:px-6">
+            <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
+              01 · DATOS DEL OPERADOR
+            </p>
 
-  <textarea
-    value={observaciones}
-    onChange={(e) => {
-      setObservaciones(e.target.value);
-      invalidateCalculation();
-    }}
-    rows={3}
-    placeholder="Observaciones de la labor (opcional)"
-    className="w-full resize-y rounded-xl border border-input bg-background px-3 py-3 text-sm font-medium leading-relaxed text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15"
-  />
-</div>
+            <div>
+              <label
+                htmlFor="operador"
+                className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-muted-foreground"
+              >
+                OPERADOR
+              </label>
 
-<div className="flex flex-col gap-3 border-t border-border px-4 pb-6 pt-5 sm:flex-row sm:px-6">
-  <button
-    onClick={calculate}
-    className="flex h-14 w-full items-center justify-center rounded-xl bg-primary font-display text-xl font-bold uppercase tracking-wide text-primary-foreground transition-colors hover:brightness-110 sm:flex-1"
-  >
-    CALCULAR
-  </button>
-
-  <button
-    onClick={reset}
-    className="flex h-14 w-full items-center justify-center gap-2 rounded-xl border border-input bg-secondary font-bold uppercase tracking-wide text-foreground transition-colors hover:border-destructive hover:text-destructive sm:w-auto sm:px-8"
-  >
-    <RotateCcw className="size-5" />
-    LIMPIAR
-  </button>
-</div>
-
-            {/* Results */}
-{shown && (
-  <div
-    ref={resultsRef}
-    className="border-t border-border bg-background/35 px-4 py-6 sm:px-6"
-  >
-    <div className="mb-5 flex items-center justify-between border-b border-border pb-4">
-      <p className="font-display text-2xl font-bold uppercase tracking-wide text-primary">
-        RESULTADOS
-      </p>
-    </div>
-          {mode === "avance" ? (
-            <div className="space-y-4">
-  {/* Fila 1: datos generales */}
-  <div className="space-y-3">
-  <div className="grid grid-cols-2 gap-3">
-    <ResultCard
-      label="Perímetro"
-      value={fmt2(shown.P)}
-      unit="m"
-    />
-
-    <ResultCard
-      label="Área"
-      value={fmt2(shown.area)}
-      unit="m²"
-    />
-  </div>
-
-</div>
-
-  {/* Cálculo Shotcrete — Sacrificio 1" */}
-<div className="border-t-2 border-border pt-5">
-  <p className="mb-3 text-sm font-bold uppercase tracking-widest text-muted-foreground">
-    Cálculo Shotcrete — Sacrificio 1"
-  </p>
-
-  <div className="grid grid-cols-2 gap-3">
-    <ResultCard
-  label='SH SACRIFICIO 1"'
-  value={fmt(shown.sh1)}
-  unit="m³"
-  mediumHighlight
-/>
-
-    <ResultCard
-      label='M³ LABOR'
-      value={fmt(shown.vReal1)}
-      unit="m³"
-      highlight
-    />
-  </div>
-</div>
-
-  {/* Cálculo Shotcrete — Sacrificio 2" */}
-<div className="border-t-2 border-border pt-5">
-  <p className="mb-3 text-sm font-bold uppercase tracking-widest text-muted-foreground">
-    Cálculo Shotcrete — Sacrificio 2"
-  </p>
-
-  <div className="grid grid-cols-2 gap-3">
-    <ResultCard
-  label='SH SACRIFICIO 2"'
-  value={fmt(shown.sh2)}
-  unit="m³"
-  mediumHighlight
-/>
-
-    <ResultCard
-      label='M³ LABOR'
-      value={fmt(shown.vReal2)}
-      unit="m³"
-      highlight
-    />
-  </div>
-</div>
-
-  {/* Calibradores */}
-<div className="border-t-2 border-border pt-5">
-  <p className="mb-3 text-sm font-bold uppercase tracking-widest text-muted-foreground">
-    CALIBRADORES
-  </p>
-
-  <ResultCard
-    label="Calibradores"
-    value={`${shown.calib}`}
-    unit="und"
-    highlight
-  />
-</div>
-</div>
-                                        ) : mode === "malla" ? (
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-              <ResultCard
-                label="Perímetro"
-                value={fmt2(shown.P)}
-                unit="m"
-              />
-
-              <ResultCard
-                label="Área"
-                value={fmt2(shown.area)}
-                unit="m²"
-              />
-
-              <ResultCard
-                label="Vol. Malla"
-                value={fmt(shown.vMalla, 2)}
-                unit="m³"
-                highlight
+              <input
+                type="text"
+                id="operador"
+                value={operador}
+                onChange={(e) => setOperador(e.target.value)}
+                placeholder="Nombre del operador"
+                className="h-12 w-full min-w-0 rounded-lg border border-input bg-background px-3 text-base font-medium text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15"
               />
             </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-                <ResultCard
-                  label="Perímetro"
-                  value={fmt2(shown.P)}
-                  unit="m"
-                />
-                <ResultCard
-                  label="Área"
-                  value={fmt2(shown.area)}
-                  unit="m²"
-                />
-                <ResultCard
-                  label="Vol. resane"
-                  value={fmt2(shown.vResane)}
-                  unit="m³"
-                  highlight
-                />
-                <ResultCard
-                  label="Calibradores"
-                  value={`${shown.calib}`}
-                  unit="und"
-                  highlight
+          </div>
+
+          {/* Inputs */}
+          <div className="border-t border-border px-4 pb-5 pt-5 sm:px-6">
+            <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
+              02 · DATOS DE LA LABOR
+            </p>
+
+            <div className="grid grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] gap-3">
+              <div>
+                <label
+                  htmlFor="nivel"
+                  className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-muted-foreground"
+                >
+                  NIVEL
+                </label>
+
+                <input
+                  type="text"
+                  id="nivel"
+                  value={nivel}
+                  onChange={(e) => setNivel(e.target.value)}
+                  placeholder="Ej. 250"
+                  className="h-12 w-full min-w-0 rounded-lg border border-input bg-background px-3 text-base font-medium text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15"
                 />
               </div>
-            )}
 
-          {modeloDisponible && <PilotoLabor3D ancho={ancho3D} alto={alto3D} longitud={largo3D} />}
+              <div>
+                <label
+                  htmlFor="labor"
+                  className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-muted-foreground"
+                >
+                  LABOR
+                </label>
 
-          {/* Verification table */}
-<div className="mt-6 overflow-x-auto rounded-xl border border-border">
-  <table className="w-full text-left text-xs sm:text-sm">
-    <thead>
-      <tr className="bg-secondary/70 text-[10px] uppercase tracking-wide text-muted-foreground sm:text-xs">
-        <th className="px-2.5 py-3 sm:px-4">Concepto</th>
-        <th className="px-2.5 py-3 sm:px-4 text-right">Valor</th>
-        <th className="px-2.5 py-3 sm:px-4 text-right">Unidad</th>
-      </tr>
-    </thead>
+                <input
+                  type="text"
+                  id="labor"
+                  value={labor}
+                  onChange={(e) => setLabor(e.target.value)}
+                  placeholder="Ej. Galería 120"
+                  className="h-12 w-full min-w-0 rounded-lg border border-input bg-background px-3 text-base font-medium text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15"
+                />
+              </div>
+            </div>
+          </div>
 
-    <tbody className="tabular-nums">
-      <tr className="border-t border-border">
-        <td className="px-2.5 py-2.5 sm:px-4">
-          Perímetro
-        </td>
-        <td className="px-2.5 py-2.5 sm:px-4 text-right font-bold">
-          {fmt2(shown.P)}
-        </td>
-        <td className="px-2.5 py-2.5 sm:px-4 text-right text-muted-foreground">
-          m
-        </td>
-      </tr>
+          <div className="border-t border-border px-4 pb-5 pt-5 sm:px-6">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-bold uppercase tracking-wider text-foreground">
+                  03 · MEDICIONES
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Ingresa las dimensiones en metros. Puedes añadir más lecturas.
+                </p>
+              </div>
+              <span className="shrink-0 rounded-md bg-secondary px-2 py-1 text-[11px] font-bold text-muted-foreground">
+                m
+              </span>
+            </div>
+            <div
+              className={`grid gap-2 ${mode === "resane" ? "grid-cols-2" : "grid-cols-3"}`}
+            >
+              {(
+                [
+                  {
+                    key: "h",
+                    label: "ALTURA",
+                    symbol: "H",
+                    values: h,
+                    setter: setH,
+                  },
+                  ...(mode === "avance" || mode === "malla"
+                    ? [
+                        {
+                          key: "a",
+                          label: "ANCHO",
+                          symbol: "A",
+                          values: a,
+                          setter: setA,
+                        },
+                      ]
+                    : []),
+                  {
+                    key: "l",
+                    label: "AVANCE",
+                    symbol: "L",
+                    values: l,
+                    setter: setL,
+                  },
+                ] as const
+              ).map((item) => (
+                <div
+                  key={item.key}
+                  className="min-w-0 rounded-xl border border-border bg-background/60 p-2.5 sm:p-3"
+                >
+                  <div className="measurement-heading mb-2 flex items-center justify-between gap-1">
+                    <span className="truncate text-[11px] font-bold uppercase tracking-wide text-foreground sm:text-xs">
+                      {item.label}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => addMeasurement(item.setter)}
+                      className="add-measurement flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-lg font-bold text-primary hover:bg-primary/20"
+                      aria-label={`Agregar medición de ${item.label.toLowerCase()}`}
+                      title="Agregar medición"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {item.values.map((value, index) => (
+                      <div key={index} className="min-w-0">
+                        {item.values.length > 1 && (
+                          <label className="mb-1 block text-[10px] font-semibold text-muted-foreground">
+                            {item.symbol}
+                            {index + 1}
+                          </label>
+                        )}
+                        <div className="flex min-w-0 items-center gap-1">
+                          <div className="min-w-0 flex-1">
+                            <Field
+                              label={`${item.label} ${index + 1} en metros`}
+                              fieldKey={item.key}
+                              value={value}
+                              onChange={(v) => {
+                                item.setter((values: string[]) =>
+                                  values.map((old, i) =>
+                                    i === index ? v : old,
+                                  ),
+                                );
+                                invalidateCalculation();
+                              }}
+                            />
+                          </div>
+                          {item.values.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                removeMeasurement(item.setter, index)
+                              }
+                              className="remove-measurement flex h-11 w-8 shrink-0 items-center justify-center rounded-md text-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                              aria-label={`Eliminar ${item.symbol}${index + 1}`}
+                            >
+                              −
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-2 border-t border-border/70 pt-2 text-[10px] font-semibold text-muted-foreground sm:text-xs">
+                    Prom.{" "}
+                    <span className="font-bold tabular-nums text-foreground">
+                      {average(item.values).toFixed(2)} m
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          {(mode === "avance" || mode === "malla") && (
+            <div className="border-t border-border px-4 pb-5 pt-5 sm:px-6">
+              <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                04 · PARÁMETRO DEL CÁLCULO
+              </p>
 
-      <tr className="border-t border-border">
-        <td className="px-2.5 py-2.5 sm:px-4">
-          Área
-        </td>
-        <td className="px-2.5 py-2.5 sm:px-4 text-right font-bold">
-          {fmt2(shown.area)}
-        </td>
-        <td className="px-2.5 py-2.5 sm:px-4 text-right text-muted-foreground">
-          m²
-        </td>
-      </tr>
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background/60 px-3 py-2.5 sm:px-4">
+                <label
+                  htmlFor="espesor"
+                  className="text-sm font-extrabold uppercase tracking-wide text-foreground"
+                >
+                  ESPESOR <span className="text-steel">(pulg)</span>
+                </label>
 
-      {mode === "avance" ? (
-        <>
+                <select
+                  id="espesor"
+                  value={espesor}
+                  onChange={(e) => {
+                    setEspesor(e.target.value);
+                    invalidateCalculation();
+                  }}
+                  className="h-11 w-28 rounded-lg border border-input bg-card px-3 text-center text-lg font-bold tabular-nums text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+                >
+                  <option value="1">1"</option>
+                  <option value="1.5">1.5"</option>
+                  <option value="2">2"</option>
+                  <option value="3">3"</option>
+                  <option value="4">4"</option>
+                </select>
+              </div>
+            </div>
+          )}
 
-          <tr className="border-t border-border">
-            <td className="px-2.5 py-2.5 sm:px-4">
-              SH SACRIFICIO 1"
-            </td>
-            <td className="px-2.5 py-2.5 sm:px-4 text-right font-bold text-primary">
-              {fmt(shown.sh1)}
-            </td>
-            <td className="px-2.5 py-2.5 sm:px-4 text-right text-muted-foreground">
-              m³
-            </td>
-          </tr>
+          <div className="border-t-2 border-border px-4 pb-4 pt-5 sm:px-6">
+            <label
+              htmlFor="observaciones"
+              className="mb-3 block text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground"
+            >
+              OBSERVACIONES
+            </label>
 
-          <tr className="border-t border-border">
-            <td className="px-2.5 py-2.5 sm:px-4">
-              M³ Labor 1
-            </td>
-            <td className="px-2.5 py-2.5 sm:px-4 text-right font-bold text-primary">
-              {fmt(shown.vReal1)}
-            </td>
-            <td className="px-2.5 py-2.5 sm:px-4 text-right text-muted-foreground">
-              m³
-            </td>
-          </tr>
+            <textarea
+              id="observaciones"
+              value={observaciones}
+              onChange={(e) => {
+                setObservaciones(e.target.value);
+                invalidateCalculation();
+              }}
+              rows={2}
+              placeholder="Observaciones de la labor (opcional)"
+              className="w-full resize-y rounded-xl border border-input bg-background px-3 py-3 text-sm font-medium leading-relaxed text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15"
+            />
+          </div>
 
-          <tr className="border-t border-border">
-            <td className="px-2.5 py-2.5 sm:px-4">
-              SH SACRIFICIO 2"
-            </td>
-            <td className="px-2.5 py-2.5 sm:px-4 text-right font-bold text-primary">
-              {fmt(shown.sh2)}
-            </td>
-            <td className="px-2.5 py-2.5 sm:px-4 text-right text-muted-foreground">
-              m³
-            </td>
-          </tr>
+          <div className="calculation-actions flex gap-3 border-t border-border px-4 pb-6 pt-5 sm:px-6">
+            <button
+              onClick={calculate}
+              className="calculate-button group flex h-14 min-w-0 flex-1 items-center justify-between rounded-full bg-primary pl-6 pr-2 font-display text-xl font-bold uppercase tracking-wide text-primary-foreground"
+            >
+              <span>Calcular volumen</span>
+              <span className="action-icon">
+                <ArrowUpRight className="size-5" aria-hidden="true" />
+              </span>
+            </button>
 
-          <tr className="border-t border-border">
-            <td className="px-2.5 py-2.5 sm:px-4">
-              M³ Labor 2
-            </td>
-            <td className="px-2.5 py-2.5 sm:px-4 text-right font-bold text-primary">
-              {fmt(shown.vReal2)}
-            </td>
-            <td className="px-2.5 py-2.5 sm:px-4 text-right text-muted-foreground">
-              m³
-            </td>
-          </tr>
-
-          <tr className="border-t border-border bg-primary/5">
-            <td className="px-2.5 py-2.5 sm:px-4">
-              Calibradores
-            </td>
-            <td className="px-2.5 py-2.5 sm:px-4 text-right font-bold text-primary">
-              {shown.calib}
-            </td>
-            <td className="px-2.5 py-2.5 sm:px-4 text-right text-muted-foreground">
-              und
-            </td>
-          </tr>
-        </>
-      ) : mode === "malla" ? (
-        <tr className="border-t border-border bg-primary/5">
-          <td className="px-2.5 py-2.5 sm:px-4">
-            Volumen de malla
-          </td>
-          <td className="px-2.5 py-2.5 sm:px-4 text-right font-bold text-primary">
-            {fmt(shown.vMalla, 2)}
-          </td>
-          <td className="px-2.5 py-2.5 sm:px-4 text-right text-muted-foreground">
-            m³
-          </td>
-        </tr>
-      ) : (
-        <>
-          <tr className="border-t border-border bg-primary/5">
-            <td className="px-2.5 py-2.5 sm:px-4">
-              Volumen de resane (Área / 11.5)
-            </td>
-            <td className="px-2.5 py-2.5 sm:px-4 text-right font-bold text-primary">
-              {fmt2(shown.vResane)}
-            </td>
-            <td className="px-2.5 py-2.5 sm:px-4 text-right text-muted-foreground">
-              m³
-            </td>
-          </tr>
-
-          <tr className="border-t border-border bg-primary/5">
-            <td className="px-2.5 py-2.5 sm:px-4">
-              Calibradores
-            </td>
-            <td className="px-2.5 py-2.5 sm:px-4 text-right font-bold text-primary">
-              {shown.calib}
-            </td>
-            <td className="px-2.5 py-2.5 sm:px-4 text-right text-muted-foreground">
-              und
-            </td>
-          </tr>
-        </>
-      )}
-    </tbody>
-  </table>
-</div>
-
-{/* Evidencia fotográfica */}
-<div className="mt-6 border-t border-border pt-6">
-  <div className="mb-3">
-    <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
-      EVIDENCIA FOTOGRÁFICA
-    </p>
-
-    <p className="mt-1 text-xs text-muted-foreground">
-      Agrega fotografías de la labor para incluirlas en el PDF.
-    </p>
-  </div>
-
-  <div className="grid grid-cols-2 gap-3">
-    <label className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-2 text-xs font-bold uppercase text-primary-foreground sm:text-sm">
-      <Camera className="size-5" />
-      Tomar foto
-
-      <input
-        type="file"
-        accept="image/*"
-        capture="environment"
-        disabled={photosLimitReached}
-        className="hidden"
-        onChange={(e) => {
-          addPhotos(e.target.files);
-          e.currentTarget.value = "";
-        }}
-      />
-    </label>
-
-    <label className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-input bg-secondary px-2 text-xs font-bold uppercase text-foreground sm:text-sm">
-      <ImagePlus className="size-5" />
-      Galería
-
-      <input
-        type="file"
-        accept="image/*"
-        multiple
-        disabled={photosLimitReached}
-        className="hidden"
-        onChange={(e) => {
-          addPhotos(e.target.files);
-          e.currentTarget.value = "";
-        }}
-      />
-    </label>
-  </div>
-
-  {photos.length > 0 && (
-    <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-      {photos.map((photo, index) => (
-        <div
-          key={index}
-          className="relative overflow-hidden rounded-lg border-2 border-border bg-secondary"
-        >
-          <img
-            src={photo}
-            alt={`Evidencia ${index + 1}`}
-            className="aspect-square w-full object-cover"
-          />
-
-          <button
-            type="button"
-            onClick={() => removePhoto(index)}
-            className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-destructive text-white shadow-lg"
-            aria-label={`Eliminar foto ${index + 1}`}
-          >
-            <X className="size-4" />
-          </button>
-
-          <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1 text-center text-xs font-bold text-white">
-            Foto {index + 1}
+            <button
+              onClick={reset}
+              className="clear-button flex h-14 shrink-0 items-center justify-center gap-2 rounded-full border border-input px-4 text-xs font-bold uppercase tracking-wide text-muted-foreground hover:text-foreground"
+            >
+              <RotateCcw className="size-5" />
+              LIMPIAR
+            </button>
           </div>
         </div>
-      ))}
-    </div>
-  )}
-</div>
-
-<button
-  onClick={generatePDF}
-  className="mt-6 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-primary/40 bg-primary/10 px-3 font-display text-lg font-bold uppercase tracking-wide text-primary transition-colors hover:bg-primary/20"
->
-  Descargar PDF
-</button>
-
-<button
-  onClick={sharePDF}
-  className="mt-2 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 font-display text-lg font-bold uppercase tracking-wide text-primary-foreground transition-colors hover:brightness-110"
->
-  Compartir PDF
-</button>
-
-          <button
-            onClick={copyReport}
-            className="mt-2 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-border bg-secondary px-3 font-display text-lg font-bold uppercase tracking-wide text-foreground transition-colors hover:bg-secondary/80"
-          >
-            {copied ? (
-              <Check className="size-5" />
-            ) : (
-              <ClipboardCopy className="size-5" />
-            )}
-            {copied ? "¡Copiado!" : "Copiar reporte"}
-          </button>
+        <div className="output-panel">
+          <div className="panel-caption">
+            <span>ESPACIO DE ANÁLISIS</span>
+            <span className="flex items-center gap-1.5">
+              <Box className="size-3.5" aria-hidden="true" /> VISUALIZACIÓN +
+              RESULTADOS
+            </span>
+          </div>
+          {modeloDisponible ? (
+            <PilotoLabor3D ancho={ancho3D} alto={alto3D} longitud={largo3D} />
+          ) : (
+            <section
+              className="model-placeholder"
+              aria-label="Vista previa pendiente de medidas"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="eyebrow">GEOMETRÍA DE LA LABOR</p>
+                  <h3 className="mt-2 font-display text-2xl font-semibold uppercase">
+                    Modelo 3D referencial
+                  </h3>
                 </div>
-      )}
+                <span className="reference-tag">POR MEDIDAS</span>
+              </div>
+              <div className="placeholder-stage" aria-hidden="true">
+                <svg
+                  viewBox="0 0 480 270"
+                  fill="none"
+                  className="tunnel-outline"
+                >
+                  <g stroke="currentColor" strokeWidth="1.2">
+                    <path d="M100 228V132a100 100 0 0 1 200 0v96M180 181V85a100 100 0 0 1 200 0v96" />
+                    <path
+                      d="m100 228 80-47m120 47 80-47M100 132l80-47m120 47 80-47M129 61l80-47m142 0-80 47m-71-29 80-47"
+                      strokeDasharray="4 6"
+                    />
+                    <path
+                      d="M80 244h240m-240-5v10m240-10v10M68 228V132m-5 0h10m-10 96h10"
+                      opacity=".45"
+                    />
+                  </g>
+                  <path
+                    d="M100 228V132a100 100 0 0 1 200 0v96"
+                    stroke="var(--primary)"
+                    strokeWidth="2"
+                    opacity=".8"
+                  />
+                  <circle
+                    cx="200"
+                    cy="132"
+                    r="22"
+                    fill="var(--background)"
+                    stroke="var(--border)"
+                  />
+                  <path
+                    d="M192 132h16m-8-8v16"
+                    stroke="var(--primary)"
+                    strokeWidth="1.5"
+                  />
+                </svg>
+                <span className="stage-coordinate">H / A / L</span>
+              </div>
+              <div className="placeholder-copy">
+                <Ruler
+                  className="size-5 shrink-0 text-primary"
+                  aria-hidden="true"
+                />
+                <div>
+                  <p className="font-semibold">
+                    {mode === "resane"
+                      ? "Modo resane · Cálculo por superficie"
+                      : "Tu labor, a partir de tus medidas"}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {mode === "resane"
+                      ? "Ingresa altura y avance para obtener el área y el volumen de resane."
+                      : "Completa altura, ancho y avance para explorar el modelo tridimensional."}
+                  </p>
+                </div>
+              </div>
+              <p className="model-disclaimer">
+                Esquema ilustrativo. No corresponde a un levantamiento
+                escaneado.
+              </p>
+            </section>
+          )}
+          {!shown && (
+            <div className="results-placeholder">
+              <span className="empty-result-icon">
+                <Ruler className="size-5" aria-hidden="true" />
+              </span>
+              <div>
+                <p className="font-display text-xl font-semibold uppercase">
+                  Todo listo para calcular
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {valid
+                    ? "Medidas completas. Pulsa Calcular volumen para ver tus resultados."
+                    : "Los volúmenes y calibradores aparecerán aquí al realizar el cálculo."}
+                </p>
+              </div>
+              <span className="reference-tag">
+                {valid ? "DATOS LISTOS" : "EN ESPERA"}
+              </span>
+            </div>
+          )}
+          {/* Results */}
+          {shown && (
+            <div
+              ref={resultsRef}
+              className="results-panel scroll-mt-6 px-4 py-6 sm:px-6"
+            >
+              <div className="mb-5 flex items-center justify-between gap-3 border-b border-border pb-4">
+                <p className="font-display text-2xl font-bold uppercase tracking-wide text-primary">
+                  Resultados de cubicación
+                </p>
+                <span className="result-status">
+                  <Check className="size-3.5" aria-hidden="true" /> Calculado
+                </span>
+              </div>
+              {mode === "avance" ? (
+                <div className="space-y-4">
+                  {/* Fila 1: datos generales */}
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <ResultCard
+                        label="Perímetro"
+                        value={fmt2(shown.P)}
+                        unit="m"
+                      />
+
+                      <ResultCard
+                        label="Área"
+                        value={fmt2(shown.area)}
+                        unit="m²"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Cálculo Shotcrete — Sacrificio 1" */}
+                  <div className="border-t-2 border-border pt-5">
+                    <p className="mb-3 text-sm font-bold uppercase tracking-widest text-muted-foreground">
+                      Cálculo Shotcrete — Sacrificio 1"
+                    </p>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <ResultCard
+                        label='SH SACRIFICIO 1"'
+                        value={fmt(shown.sh1)}
+                        unit="m³"
+                        mediumHighlight
+                      />
+
+                      <ResultCard
+                        label="M³ LABOR"
+                        value={fmt(shown.vReal1)}
+                        unit="m³"
+                        highlight
+                      />
+                    </div>
+                  </div>
+
+                  {/* Cálculo Shotcrete — Sacrificio 2" */}
+                  <div className="border-t-2 border-border pt-5">
+                    <p className="mb-3 text-sm font-bold uppercase tracking-widest text-muted-foreground">
+                      Cálculo Shotcrete — Sacrificio 2"
+                    </p>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <ResultCard
+                        label='SH SACRIFICIO 2"'
+                        value={fmt(shown.sh2)}
+                        unit="m³"
+                        mediumHighlight
+                      />
+
+                      <ResultCard
+                        label="M³ LABOR"
+                        value={fmt(shown.vReal2)}
+                        unit="m³"
+                        highlight
+                      />
+                    </div>
+                  </div>
+
+                  {/* Calibradores */}
+                  <div className="border-t-2 border-border pt-5">
+                    <p className="mb-3 text-sm font-bold uppercase tracking-widest text-muted-foreground">
+                      CALIBRADORES
+                    </p>
+
+                    <ResultCard
+                      label="Calibradores"
+                      value={`${shown.calib}`}
+                      unit="und"
+                      highlight
+                    />
+                  </div>
+                </div>
+              ) : mode === "malla" ? (
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+                  <ResultCard
+                    label="Perímetro"
+                    value={fmt2(shown.P)}
+                    unit="m"
+                  />
+
+                  <ResultCard label="Área" value={fmt2(shown.area)} unit="m²" />
+
+                  <ResultCard
+                    label="Vol. Malla"
+                    value={fmt(shown.vMalla, 2)}
+                    unit="m³"
+                    highlight
+                  />
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+                  <ResultCard
+                    label="Perímetro"
+                    value={fmt2(shown.P)}
+                    unit="m"
+                  />
+                  <ResultCard label="Área" value={fmt2(shown.area)} unit="m²" />
+                  <ResultCard
+                    label="Vol. resane"
+                    value={fmt2(shown.vResane)}
+                    unit="m³"
+                    highlight
+                  />
+                  <ResultCard
+                    label="Calibradores"
+                    value={`${shown.calib}`}
+                    unit="und"
+                    highlight
+                  />
+                </div>
+              )}
+
+              {/* Verification table */}
+              <details className="verification-details mt-6 rounded-xl border border-border">
+                <summary>
+                  Desglose del cálculo{" "}
+                  <span>Conceptos, valores y unidades</span>
+                </summary>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs sm:text-sm">
+                    <thead>
+                      <tr className="bg-secondary/70 text-[10px] uppercase tracking-wide text-muted-foreground sm:text-xs">
+                        <th className="px-2.5 py-3 sm:px-4">Concepto</th>
+                        <th className="px-2.5 py-3 sm:px-4 text-right">
+                          Valor
+                        </th>
+                        <th className="px-2.5 py-3 sm:px-4 text-right">
+                          Unidad
+                        </th>
+                      </tr>
+                    </thead>
+
+                    <tbody className="tabular-nums">
+                      <tr className="border-t border-border">
+                        <td className="px-2.5 py-2.5 sm:px-4">Perímetro</td>
+                        <td className="px-2.5 py-2.5 sm:px-4 text-right font-bold">
+                          {fmt2(shown.P)}
+                        </td>
+                        <td className="px-2.5 py-2.5 sm:px-4 text-right text-muted-foreground">
+                          m
+                        </td>
+                      </tr>
+
+                      <tr className="border-t border-border">
+                        <td className="px-2.5 py-2.5 sm:px-4">Área</td>
+                        <td className="px-2.5 py-2.5 sm:px-4 text-right font-bold">
+                          {fmt2(shown.area)}
+                        </td>
+                        <td className="px-2.5 py-2.5 sm:px-4 text-right text-muted-foreground">
+                          m²
+                        </td>
+                      </tr>
+
+                      {mode === "avance" ? (
+                        <>
+                          <tr className="border-t border-border">
+                            <td className="px-2.5 py-2.5 sm:px-4">
+                              SH SACRIFICIO 1"
+                            </td>
+                            <td className="px-2.5 py-2.5 sm:px-4 text-right font-bold text-primary">
+                              {fmt(shown.sh1)}
+                            </td>
+                            <td className="px-2.5 py-2.5 sm:px-4 text-right text-muted-foreground">
+                              m³
+                            </td>
+                          </tr>
+
+                          <tr className="border-t border-border">
+                            <td className="px-2.5 py-2.5 sm:px-4">
+                              M³ Labor 1
+                            </td>
+                            <td className="px-2.5 py-2.5 sm:px-4 text-right font-bold text-primary">
+                              {fmt(shown.vReal1)}
+                            </td>
+                            <td className="px-2.5 py-2.5 sm:px-4 text-right text-muted-foreground">
+                              m³
+                            </td>
+                          </tr>
+
+                          <tr className="border-t border-border">
+                            <td className="px-2.5 py-2.5 sm:px-4">
+                              SH SACRIFICIO 2"
+                            </td>
+                            <td className="px-2.5 py-2.5 sm:px-4 text-right font-bold text-primary">
+                              {fmt(shown.sh2)}
+                            </td>
+                            <td className="px-2.5 py-2.5 sm:px-4 text-right text-muted-foreground">
+                              m³
+                            </td>
+                          </tr>
+
+                          <tr className="border-t border-border">
+                            <td className="px-2.5 py-2.5 sm:px-4">
+                              M³ Labor 2
+                            </td>
+                            <td className="px-2.5 py-2.5 sm:px-4 text-right font-bold text-primary">
+                              {fmt(shown.vReal2)}
+                            </td>
+                            <td className="px-2.5 py-2.5 sm:px-4 text-right text-muted-foreground">
+                              m³
+                            </td>
+                          </tr>
+
+                          <tr className="border-t border-border bg-primary/5">
+                            <td className="px-2.5 py-2.5 sm:px-4">
+                              Calibradores
+                            </td>
+                            <td className="px-2.5 py-2.5 sm:px-4 text-right font-bold text-primary">
+                              {shown.calib}
+                            </td>
+                            <td className="px-2.5 py-2.5 sm:px-4 text-right text-muted-foreground">
+                              und
+                            </td>
+                          </tr>
+                        </>
+                      ) : mode === "malla" ? (
+                        <tr className="border-t border-border bg-primary/5">
+                          <td className="px-2.5 py-2.5 sm:px-4">
+                            Volumen de malla
+                          </td>
+                          <td className="px-2.5 py-2.5 sm:px-4 text-right font-bold text-primary">
+                            {fmt(shown.vMalla, 2)}
+                          </td>
+                          <td className="px-2.5 py-2.5 sm:px-4 text-right text-muted-foreground">
+                            m³
+                          </td>
+                        </tr>
+                      ) : (
+                        <>
+                          <tr className="border-t border-border bg-primary/5">
+                            <td className="px-2.5 py-2.5 sm:px-4">
+                              Volumen de resane (Área / 11.5)
+                            </td>
+                            <td className="px-2.5 py-2.5 sm:px-4 text-right font-bold text-primary">
+                              {fmt2(shown.vResane)}
+                            </td>
+                            <td className="px-2.5 py-2.5 sm:px-4 text-right text-muted-foreground">
+                              m³
+                            </td>
+                          </tr>
+
+                          <tr className="border-t border-border bg-primary/5">
+                            <td className="px-2.5 py-2.5 sm:px-4">
+                              Calibradores
+                            </td>
+                            <td className="px-2.5 py-2.5 sm:px-4 text-right font-bold text-primary">
+                              {shown.calib}
+                            </td>
+                            <td className="px-2.5 py-2.5 sm:px-4 text-right text-muted-foreground">
+                              und
+                            </td>
+                          </tr>
+                        </>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+
+              {/* Evidencia fotográfica */}
+              <div className="mt-6 border-t border-border pt-6">
+                <div className="mb-3">
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                    EVIDENCIA FOTOGRÁFICA
+                  </p>
+
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Agrega fotografías de la labor para incluirlas en el PDF.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-2 text-xs font-bold uppercase text-primary-foreground sm:text-sm">
+                    <Camera className="size-5" />
+                    Tomar foto
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      disabled={photosLimitReached}
+                      className="hidden"
+                      onChange={(e) => {
+                        addPhotos(e.target.files);
+                        e.currentTarget.value = "";
+                      }}
+                    />
+                  </label>
+
+                  <label className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-input bg-secondary px-2 text-xs font-bold uppercase text-foreground sm:text-sm">
+                    <ImagePlus className="size-5" />
+                    Galería
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      disabled={photosLimitReached}
+                      className="hidden"
+                      onChange={(e) => {
+                        addPhotos(e.target.files);
+                        e.currentTarget.value = "";
+                      }}
+                    />
+                  </label>
+                </div>
+
+                {photos.length > 0 && (
+                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    {photos.map((photo, index) => (
+                      <div
+                        key={index}
+                        className="relative overflow-hidden rounded-lg border-2 border-border bg-secondary"
+                      >
+                        <img
+                          src={photo}
+                          alt={`Evidencia ${index + 1}`}
+                          className="aspect-square w-full object-cover"
+                        />
+
+                        <button
+                          type="button"
+                          onClick={() => removePhoto(index)}
+                          className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-destructive text-white shadow-lg"
+                          aria-label={`Eliminar foto ${index + 1}`}
+                        >
+                          <X className="size-4" />
+                        </button>
+
+                        <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1 text-center text-xs font-bold text-white">
+                          Foto {index + 1}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="export-actions">
+                <button
+                  onClick={generatePDF}
+                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-primary/40 bg-primary/10 px-3 font-sans text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
+                >
+                  <ArrowDownToLine className="size-4" aria-hidden="true" />{" "}
+                  Descargar PDF
+                </button>
+
+                <button
+                  onClick={sharePDF}
+                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 font-sans text-xs font-semibold text-primary-foreground transition-colors hover:brightness-110"
+                >
+                  <Share2 className="size-4" aria-hidden="true" /> Compartir PDF
+                </button>
+
+                <button
+                  onClick={copyReport}
+                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-border bg-secondary px-3 font-sans text-xs font-semibold text-foreground transition-colors hover:bg-secondary/80"
+                >
+                  {copied ? (
+                    <Check className="size-5" />
+                  ) : (
+                    <ClipboardCopy className="size-5" />
+                  )}
+                  {copied ? "¡Copiado!" : "Copiar reporte"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
