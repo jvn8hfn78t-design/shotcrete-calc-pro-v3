@@ -47,12 +47,13 @@ export function CorrespondenciasFotos({ fotos }: { fotos: Foto[] }) {
       const worker = new Comparador();
       workerRef.current = worker;
       setMensaje("Buscando puntos comunes...");
-      worker.onmessage = (event: MessageEvent<Par[]>) => {
+      worker.onmessage = (event: MessageEvent<{ pares: Par[]; escala: number; candidatos: number; detallesA: number; detallesB: number }>) => {
         if (!activo.current) return;
-        setResultado({ ancho: primera.ancho, alto: primera.alto, pares: event.data });
-        terminar(event.data.length
-          ? `${event.data.length} coincidencias candidatas. Compara los mismos números en ambas fotos.`
-          : "Sin coincidencias. Prueba dos vistas más próximas con detalles visibles.");
+        const { pares, escala, candidatos, detallesA, detallesB } = event.data;
+        setResultado({ ancho: primera.ancho, alto: primera.alto, pares });
+        terminar(pares.length
+          ? `${pares.length} coincidencias candidatas${escala === 2 ? " en la vista reducida" : ""}. Compara los números en ambas fotos.`
+          : `Detalles detectados: foto 1: ${detallesA}, foto 2: ${detallesB}. Pares aceptados en la primera pasada: ${candidatos}. Se necesitan al menos 3 en una misma pasada.`);
       };
       worker.onerror = worker.onmessageerror = () => terminar("No se pudo completar la comparación.");
       timer.current = window.setTimeout(() => terminar("La comparación superó un minuto. Puedes reintentar."), 60000);

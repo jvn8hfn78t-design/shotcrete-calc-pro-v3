@@ -41,7 +41,7 @@ function manchas(gris: Float32Array, w: number, h: number) {
   }
   return candidatos.sort((a,b) => b.fuerza-a.fuerza);
 }
-function extraer({ ancho: w, alto: h, datos }: Trama) {
+function extraer({ ancho: w, alto: h, datos }: Trama, suavizar = false) {
   const gris = new Float32Array(w * h);
   for (let i = 0; i < gris.length; i++) {
     gris[i] = (77 * datos[4*i] + 150 * datos[4*i+1] + 29 * datos[4*i+2]) / 256;
@@ -83,7 +83,8 @@ function extraer({ ancho: w, alto: h, datos }: Trama) {
       let suma = 0, k = 0;
       for (let dy = -4*salto; dy <= 4*salto; dy += salto)
         for (let dx = -4*salto; dx <= 4*salto; dx += salto) {
-          const v = gris[(y+dy)*w+x+dx];
+          const i = (y+dy)*w+x+dx;
+          const v = suavizar ? (4*gris[i]+gris[i-1]+gris[i+1]+gris[i-w]+gris[i+w])/8 : gris[i];
           descriptor[k++] = v; suma += v;
         }
       let norma = 0;
@@ -111,11 +112,11 @@ function registrar(r: Ranking, indice: number, distancia: number) {
     r.segundo = r.mejor; r.mejor = distancia; r.indice = indice;
   } else if (distancia < r.segundo) r.segundo = distancia;
 }
-function distintivo(r: Ranking) {
-  return Number.isFinite(r.segundo) && r.mejor < 0.12 && r.mejor < 0.5*r.segundo;
+function distintivo(r: Ranking, respaldo: boolean) {
+  return Number.isFinite(r.segundo) && r.mejor < (respaldo ? 0.30 : 0.12) && r.mejor < (respaldo ? 0.72 : 0.5)*r.segundo;
 }
 
-function comparar(a: Rasgo[], b: Rasgo[]) {
+function comparar(a: Rasgo[], b: Rasgo[], respaldo: boolean) {
   const ida = a.map(ranking), vuelta = b.map(ranking);
   for (let i = 0; i < a.length; i++) {
     for (let j = 0; j < b.length; j++) {
@@ -128,19 +129,18 @@ function comparar(a: Rasgo[], b: Rasgo[]) {
   const pares: { a: Punto; b: Punto }[] = [];
   for (let i = 0; i < a.length; i++) {
     const r = ida[i];
-    if (!distintivo(r) || vuelta[r.indice].indice !== i || !distintivo(vuelta[r.indice])) continue;
+    if (!distintivo(r,respaldo) || vuelta[r.indice].indice !== i || !distintivo(vuelta[r.indice],respaldo)) continue;
     const q = b[r.indice];
     pares.push({ a: { x:a[i].x, y:a[i].y }, b: { x:q.x, y:q.y } });
   }
   return pares;
 }
 
-self.onmessage = (e: MessageEvent<{ primera: Trama; segunda: Trama }>) => {
-  const a = extraer(e.data.primera), b = extraer(e.data.segunda);
-  const esquinas = comparar(a.esquinas,b.esquinas);
-  const textura = comparar(a.manchas,b.manchas);
+function emparejar(a: ReturnType<typeof extraer>, b: ReturnType<typeof extraer>, respaldo = false) {
+  const esquinas = comparar(a.esquinas,b.esquinas,respaldo);
+  const textura = comparar(a.manchas,b.manchas,respaldo);
   const candidatos = [...esquinas,...textura];
-  const apoyados = textura.filter(p => {
+  const apoyados = (respaldo ? candidatos : textura).filter(p => {
     let apoyo = 0;
     for (const q of candidatos) {
       const distancia = Math.hypot(q.a.x-p.a.x,q.a.y-p.a.y);
@@ -150,8 +150,40 @@ self.onmessage = (e: MessageEvent<{ primera: Trama; segunda: Trama }>) => {
     }
     return false;
   });
-  const pares = [...esquinas,...apoyados];
+  const pares = respaldo ? apoyados : [...esquinas,...apoyados];
   // Un único detalle aislado no basta para contrastar un par de vistas.
-  self.postMessage(pares.length >= 3 ? pares : []);
+  return pares;
+}
+
+function reducir(f: Trama): Trama {
+  const ancho = Math.floor(f.ancho/2), alto = Math.floor(f.alto/2);
+  const datos = new Uint8ClampedArray(ancho*alto*4);
+  for (let y = 0; y < alto; y++) {
+    for (let x = 0; x < ancho; x++) {
+      const i = (2*y*f.ancho+2*x)*4;
+      for (let c = 0; c < 3; c++) {
+        const j = i+c, fila = 4*f.ancho;
+        datos[4*(y*ancho+x)+c] = (f.datos[j]+f.datos[j+4]+f.datos[j+fila]+f.datos[j+fila+4])/4;
+      }
+    }
+  }
+  return { ancho, alto, datos };
+}
+
+self.onmessage = (e: MessageEvent<{ primera: Trama; segunda: Trama }>) => {
+  const { primera, segunda } = e.data;
+  const a = extraer(primera), b = extraer(segunda);
+  let pares = emparejar(a,b);
+  let escala = 1;
+  if (pares.length < 3 && Math.min(primera.ancho, primera.alto) >= 72) {
+    const alternativos = emparejar(extraer(reducir(primera),true), extraer(reducir(segunda),true), true);
+    if (alternativos.length >= 3) {
+      const ampliar = (p: Punto) => ({ x:2*p.x+0.5, y:2*p.y+0.5 });
+      pares = alternativos.map(p => ({ a: ampliar(p.a), b: ampliar(p.b) }));
+      escala = 2;
+    }
+  }
+  self.postMessage({ pares: pares.length >= 3 ? pares : [], escala, candidatos: pares.length,
+    detallesA: a.esquinas.length+a.manchas.length, detallesB: b.esquinas.length+b.manchas.length });
 };
 export {};
