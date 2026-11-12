@@ -1,15 +1,13 @@
 import { useMemo, useState } from "react";
 
 type Punto = { x: number; y: number; z: number };
-const ANCHO = 4;
-const ALTO = 4.2;
-const RADIO = ANCHO / 2;
-const PARED = ALTO - RADIO;
-const LONGITUD = 3.8;
+
 const PASOS = 16;
 const ARCOS = 20;
 
-function seccion(angulo: number, z: number): Punto {
+function seccion(angulo: number, z: number, ancho: number, alto: number): Punto {
+  const RADIO = ancho / 2;
+  const PARED = alto - RADIO;
   const segmento = angulo * (2 * PARED + Math.PI * RADIO);
   let x: number, y: number;
   if (segmento <= PARED) {
@@ -27,7 +25,10 @@ function seccion(angulo: number, z: number): Punto {
   return { x: x + irregularidad, y: y + irregularidad, z };
 }
 
-export function PilotoLabor3D() {
+export function PilotoLabor3D({ ancho = 4, alto = 4.2, longitud = 3.8 }: { ancho?: number; alto?: number; longitud?: number }) {
+  const ANCHO = Math.max(0.5, ancho);
+  const ALTO = Math.max(ANCHO / 2, alto);
+  const LONGITUD = Math.max(0.1, longitud);
   const [giro, setGiro] = useState(30);
   const [inclinacion, setInclinacion] = useState(18);
   const [zoom, setZoom] = useState(100);
@@ -50,7 +51,7 @@ export function PilotoLabor3D() {
     };
     const vertices = Array.from({ length: PASOS + 1 }, (_, i) =>
       Array.from({ length: ARCOS + 1 }, (_, j) =>
-        proyectar(seccion(j / ARCOS, LONGITUD * i / PASOS)),
+        proyectar(seccion(j / ARCOS, LONGITUD * i / PASOS, ANCHO, ALTO)),
       ),
     );
     const caras = [];
@@ -66,13 +67,13 @@ export function PilotoLabor3D() {
       }
     }
     return { vertices, caras: caras.sort((p, q) => q.fondo - p.fondo) };
-  }, [giro, inclinacion, zoom]);
+  }, [giro, inclinacion, zoom, ANCHO, ALTO, LONGITUD]);
 
   return <section className="space-y-4 rounded-xl border border-border bg-card p-4 sm:p-6">
     <div>
-      <h3 className="font-bold uppercase">Piloto 3D · labor minera simulada</h3>
+      <h3 className="font-bold uppercase">Modelo 3D referencial · dimensiones ingresadas</h3>
       <p className="mt-1 text-sm text-muted-foreground">
-        Modelo de demostración generado matemáticamente. No utiliza tus fotografías ni representa un levantamiento real.
+        Representación geométrica basada en el ancho, alto y avance ingresados en la calculadora. No es un levantamiento fotogramétrico ni reproduce las irregularidades reales.
       </p>
     </div>
     <div className="flex flex-wrap gap-2">
@@ -94,7 +95,7 @@ export function PilotoLabor3D() {
         </linearGradient>
       </defs>
       <rect width="360" height="310" fill="url(#fondo-piloto)" />
-      <text x="12" y="22" fill="#e2e8f0" fontSize="12" fontWeight="bold">SIMULACIÓN · NO ES MEDICIÓN REAL</text>
+      <text x="12" y="22" fill="#e2e8f0" fontSize="12" fontWeight="bold">MODELO REFERENCIAL · NO ES ESCANEO REAL</text>
       {modo === "malla"
         ? modelo.caras.map(c => <polygon key={c.clave} points={c.puntos}
             fill={c.corona ? "#14b8a6" : "#64748b"} fillOpacity={0.50}
