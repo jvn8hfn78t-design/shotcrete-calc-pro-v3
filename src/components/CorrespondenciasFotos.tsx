@@ -59,18 +59,20 @@ export function CorrespondenciasFotos({ fotos }: { fotos: Foto[] }) {
       }
       const total=fotos.length*(fotos.length-1)/2;
       const resultados:Resultado[]=[];
+      let conParalaje = 0;
       let hechos=0;
       for (let i=0;i<fotos.length;i++) {
         for (let j=i+1;j<fotos.length;j++) {
           setMensaje(`Comparando par ${++hechos} de ${total}…`);
           const r=await procesar<Resultado>(worker,{tipo:"comparar",i,j},control.signal);
+          if (r.geometria.estado === "paralaje") conParalaje++;
           if (r.pares.length || r.geometria.nube) resultados.push(r);
         }
       }
       resultados.sort((a,b)=>Number(!!b.geometria.nube)-Number(!!a.geometria.nube) || Number(b.geometria.estado==="paralaje")-Number(a.geometria.estado==="paralaje") || b.pares.length-a.pares.length);
       setTamanos(medidas); setLista(resultados); setCompleto(true);
       const conNube = resultados.filter(r => r.geometria.nube).length;
-      setMensaje(`Análisis completo: ${total} pares evaluados · ${conNube} con nube 3D.`);
+      setMensaje(`Análisis completo: ${fotos.length} fotos de recorrido · ${total} pares evaluados · ${conParalaje} con paralaje · ${conNube} con nube 3D.`);
     } catch (error) {
       if (!control.signal.aborted) setMensaje(error instanceof Error ? error.message : "Error al analizar las fotos.");
     } finally {

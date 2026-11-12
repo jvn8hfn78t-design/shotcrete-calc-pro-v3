@@ -94,6 +94,23 @@ function procesarPixeles(
   });
 }
 
+function reducirDosPorDos(origen: Uint8ClampedArray, ancho: number, alto: number) {
+  const destino = new Uint8ClampedArray(ancho * alto * 4);
+  const paso = 2 * ancho * 4;
+  for (let y = 0; y < alto; y++) {
+    for (let x = 0; x < ancho; x++) {
+      const inicio = 2 * y * paso + 8 * x;
+      for (let c = 0; c < 4; c++) {
+        const i = inicio + c;
+        const superior = Math.round((origen[i] + origen[i + 4]) / 2);
+        const inferior = Math.round((origen[i + paso] + origen[i + paso + 4]) / 2);
+        destino[4 * (y * ancho + x) + c] = Math.round((superior + inferior) / 2);
+      }
+    }
+  }
+  return destino;
+}
+
 export async function leerFoto(blob: Blob) {
   const url = URL.createObjectURL(blob);
   const imagen = new Image();
@@ -122,8 +139,9 @@ export async function leerFoto(blob: Blob) {
     const alto = Math.max(1, Math.round(altoOriginal * factor));
 
     const canvas = document.createElement("canvas");
-    canvas.width = ancho;
-    canvas.height = alto;
+    const doble = anchoOriginal >= 2 * ancho && altoOriginal >= 2 * alto;
+    canvas.width = doble ? 2 * ancho : ancho;
+    canvas.height = doble ? 2 * alto : alto;
 
     try {
       const contexto = canvas.getContext("2d", {
@@ -134,14 +152,17 @@ export async function leerFoto(blob: Blob) {
         throw new Error("No se pudo preparar el lienzo de procesamiento.");
       }
 
-      contexto.drawImage(imagen, 0, 0, ancho, alto);
+      contexto.imageSmoothingEnabled = true;
+      contexto.imageSmoothingQuality = "high";
+      contexto.drawImage(imagen, 0, 0, canvas.width, canvas.height);
+      const rgba = contexto.getImageData(0, 0, canvas.width, canvas.height).data;
 
       return {
         ancho,
         alto,
         anchoOriginal,
         altoOriginal,
-        datos: contexto.getImageData(0, 0, ancho, alto).data,
+        datos: doble ? reducirDosPorDos(rgba, ancho, alto) : rgba,
       };
     } finally {
       canvas.width = 0;
