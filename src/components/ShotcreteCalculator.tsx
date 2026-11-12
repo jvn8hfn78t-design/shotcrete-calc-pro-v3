@@ -192,7 +192,7 @@ function Field({ fieldKey, value, onChange }: FieldProps) {
         placeholder="0.00"
         aria-invalid={!!error}
         onChange={(e) => onChange(e.target.value)}
-        className={`h-12 w-full rounded-lg border-2 bg-secondary px-3 text-2xl font-bold tabular-nums text-foreground outline-none transition-colors placeholder:text-muted-foreground/40 ${
+        className={`h-12 w-full rounded-lg border bg-background px-3 text-xl font-bold tabular-nums text-foreground outline-none transition-colors placeholder:text-muted-foreground/40 focus:ring-2 focus:ring-primary/20 ${
           error ? "border-destructive" : "border-input focus:border-primary"
         }`}
       />
@@ -221,19 +221,19 @@ function ResultCard({
 }) {
   return (
     <div
-  className={`rounded-xl border-2 p-3 sm:p-5 ${
+  className={`min-w-0 rounded-xl border p-3.5 sm:p-5 ${
     highlight
-      ? "border-primary bg-primary/10"
+      ? "border-primary/50 bg-primary/10"
       : mediumHighlight
-        ? "border-primary/50 bg-primary/5"
-        : "border-border bg-secondary"
+        ? "border-primary/25 bg-primary/5"
+        : "border-border bg-card"
   }`}
 >
-  <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
     {label}
   </p>
 
-  <p className="mt-2 font-display text-3xl font-bold tabular-nums leading-none sm:text-5xl">
+  <p className="mt-2 flex flex-wrap items-baseline gap-x-1 font-display text-3xl font-bold tabular-nums leading-none sm:text-4xl">
     <span
       className={
         highlight
@@ -1658,16 +1658,14 @@ Fecha: ${date}`;
   };
 
   return (
-    <div className="overflow-hidden rounded-2xl border-2 border-border bg-card shadow-2xl">
-      <div className="hazard-stripes h-3" />
-      <div className="relative px-4 py-4 text-center sm:px-6">
-  <h1 className="text-2xl font-black uppercase tracking-wider text-foreground">
-    SHOTCRETE CALC PRO
-  </h1>
-
-  <p className="mt-1 text-sm font-extrabold uppercase tracking-[0.25em] text-muted-foreground">
-    UM CHUNGAR
-  </p>
+    <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+      <div className="h-1 bg-primary" />
+      <div className="relative flex min-h-20 items-center border-b border-border px-4 py-4 sm:px-6">
+  <div className="pr-12">
+    <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary">01 · CUBICACIÓN</p>
+    <h2 className="mt-1 font-display text-2xl font-bold uppercase tracking-tight text-foreground sm:text-3xl">Calculadora de shotcrete</h2>
+    <p className="mt-1 text-xs text-muted-foreground">Registra las medidas y obtiene el volumen de aplicación.</p>
+  </div>
 
   <div className="absolute right-3 top-3">
     <button
@@ -1774,12 +1772,12 @@ Fecha: ${date}`;
 )}
 
       {/* Mode switcher */}
-<div className="border-t-2 border-border px-4 pb-2 pt-5 sm:px-6 sm:pt-5">
-  <p className="mb-2 text-sm font-extrabold uppercase tracking-widest text-foreground">
+<div className="px-4 pb-5 pt-5 sm:px-6">
+  <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
     USO
   </p>
 
-  <div className="grid grid-cols-3 gap-2">
+  <div className="grid grid-cols-3 gap-1.5 rounded-xl border border-border bg-background p-1.5">
     {(["avance", "resane", "malla"] as Mode[]).map((m) => (
           <button
             key={m}
@@ -1792,10 +1790,10 @@ Fecha: ${date}`;
   setResult(null);
   setPhotos([]);
 }}
-            className={`h-14 rounded-lg font-display text-2xl font-bold uppercase tracking-wider transition-all ${
+            className={`min-h-12 rounded-lg px-1 font-display text-lg font-bold uppercase tracking-wide transition-colors sm:text-xl ${
               mode === m
-                ? "bg-primary text-primary-foreground shadow-[0_0_24px_-6px] shadow-primary/60"
-                : "bg-secondary text-muted-foreground hover:text-foreground"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
             }`}
           >
             {m}
@@ -1805,8 +1803,7 @@ Fecha: ${date}`;
 </div>
 
 {/* Datos del operador */}
-<div className="relative px-4 pb-4 pt-5 sm:px-6">
-  <div className="absolute left-0 right-0 top-1 border-t-2 border-border" />
+<div className="relative border-t border-border px-4 pb-5 pt-5 sm:px-6">
   <p className="mb-3 text-sm font-extrabold uppercase tracking-widest text-foreground">
     DATOS DEL OPERADOR
   </p>
@@ -1827,12 +1824,12 @@ Fecha: ${date}`;
 </div>
 
 {/* Inputs */}
-<div className="mt-4 border-t-2 border-border px-4 pb-4 pt-5 sm:px-6">
+<div className="border-t border-border px-4 pb-5 pt-5 sm:px-6">
   <p className="mb-3 text-sm font-extrabold uppercase tracking-widest text-foreground">
     DATOS DE LA LABOR
   </p>
 
-  <div className="grid grid-cols-[0.7fr_1.3fr] gap-4 pr-2">
+  <div className="grid grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] gap-3">
     <div>
       <label className="mb-1 block text-sm font-extrabold uppercase tracking-wide text-foreground">
         NIVEL
@@ -1863,7 +1860,7 @@ Fecha: ${date}`;
     </div>
 </div>
 
-<div className="relative px-4 pb-4 pt-5 sm:px-6 before:absolute before:inset-x-0 before:top-1 before:border-t-2 before:border-border">
+<div className="border-t border-border px-4 pb-5 pt-6 sm:px-6">
   <p className="mb-4 text-sm font-extrabold uppercase tracking-widest text-foreground">
     MEDICIONES
   </p>
@@ -2046,7 +2043,7 @@ Fecha: ${date}`;
 </div>
 </div>
 {(mode === "avance" || mode === "malla") && (
-  <div className="border-t-2 border-border px-4 pb-4 pt-5 sm:px-6">
+  <div className="border-t border-border px-4 pb-5 pt-5 sm:px-6">
     <p className="mb-3 text-sm font-extrabold uppercase tracking-widest text-foreground">
       PARÁMETRO DEL CÁLCULO
     </p>
@@ -2095,17 +2092,17 @@ Fecha: ${date}`;
   />
 </div>
 
-<div className="flex flex-col gap-3 px-4 pb-4 pt-2 sm:flex-row sm:px-6 sm:pb-6">
+<div className="flex flex-col gap-3 border-t border-border px-4 pb-6 pt-5 sm:flex-row sm:px-6">
   <button
     onClick={calculate}
-    className="flex h-14 w-full items-center justify-center rounded-lg bg-primary font-bold uppercase tracking-wide text-primary-foreground shadow-lg transition-colors hover:brightness-110 sm:w-auto sm:px-10"
+    className="flex h-14 w-full items-center justify-center rounded-xl bg-primary font-display text-xl font-bold uppercase tracking-wide text-primary-foreground transition-colors hover:brightness-110 sm:flex-1"
   >
     CALCULAR
   </button>
 
   <button
     onClick={reset}
-    className="flex h-14 w-full items-center justify-center gap-2 rounded-lg border-2 border-input bg-transparent font-bold uppercase tracking-wide text-muted-foreground transition-colors hover:border-destructive hover:text-destructive sm:w-auto sm:px-10"
+    className="flex h-14 w-full items-center justify-center gap-2 rounded-xl border border-input bg-secondary font-bold uppercase tracking-wide text-foreground transition-colors hover:border-destructive hover:text-destructive sm:w-auto sm:px-8"
   >
     <RotateCcw className="size-5" />
     LIMPIAR
@@ -2116,10 +2113,10 @@ Fecha: ${date}`;
 {shown && (
   <div
     ref={resultsRef}
-    className="border-t-2 border-border bg-background/60 px-4 py-6 sm:px-6"
+    className="border-t border-border bg-background/35 px-4 py-6 sm:px-6"
   >
-    <div className="mb-5 border-b-2 border-primary/30 pb-3">
-      <p className="text-lg font-bold uppercase tracking-[0.25em] text-primary">
+    <div className="mb-5 flex items-center justify-between border-b border-border pb-4">
+      <p className="font-display text-2xl font-bold uppercase tracking-wide text-primary">
         RESULTADOS
       </p>
     </div>
@@ -2254,7 +2251,7 @@ Fecha: ${date}`;
           {modeloDisponible && <PilotoLabor3D ancho={ancho3D} alto={alto3D} longitud={largo3D} />}
 
           {/* Verification table */}
-<div className="mt-6 overflow-x-auto rounded-lg border border-border">
+<div className="mt-6 overflow-x-auto rounded-xl border border-border">
   <table className="w-full min-w-[420px] text-left text-sm">
     <thead>
       <tr className="bg-secondary text-xs uppercase tracking-widest text-muted-foreground">
