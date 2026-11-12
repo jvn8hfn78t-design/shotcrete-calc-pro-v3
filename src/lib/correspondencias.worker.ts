@@ -1,4 +1,21 @@
 import { evaluarCamaras } from "./geometria-camaras";
+import type { Nube } from "./triangulacion";
+// Normalizar una reconstrucción calculada con las fotografías invertidas.
+function invertirNube(n: Nube): Nube {
+  const r = n.rotacion, t = n.traslacion;
+  const rt = [0, 1, 2].map(i => [r[0][i], r[1][i], r[2][i]]);
+  const traslado = rt.map(fila => -(fila[0] * t[0] + fila[1] * t[1] + fila[2] * t[2])) as [number, number, number];
+  const puntos = n.puntos.map(p => ({
+    ...p,
+    x: r[0][0] * p.x + r[0][1] * p.y + r[0][2] * p.z + t[0],
+    y: r[1][0] * p.x + r[1][1] * p.y + r[1][2] * p.z + t[1],
+    z: r[2][0] * p.x + r[2][1] * p.y + r[2][2] * p.z + t[2],
+    a: p.b,
+    b: p.a,
+  }));
+  return { ...n, puntos, rotacion: rt, traslacion: traslado };
+}
+
 type Trama = { ancho: number; alto: number; datos: Uint8ClampedArray };
 type Punto = { x: number; y: number };
 type Rasgo = Punto & { descriptor: Float32Array };
@@ -247,7 +264,7 @@ self.onmessage = (e:MessageEvent<Orden>) => {
               ? paresVerificados.map(p => ({ a: p.b, b: p.a }))
               : paresVerificados,
             candidatos: puntos.length,
-            geometria: geo,
+            geometria: inversa ? { ...geo, nube: invertirNube(geo.nube) } : geo,
           });
           return;
         }
