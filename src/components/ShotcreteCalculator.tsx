@@ -1804,12 +1804,12 @@ Fecha: ${date}`;
 
 {/* Datos del operador */}
 <div className="relative border-t border-border px-4 pb-5 pt-5 sm:px-6">
-  <p className="mb-3 text-sm font-extrabold uppercase tracking-widest text-foreground">
-    DATOS DEL OPERADOR
+  <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
+    01 · DATOS DEL OPERADOR
   </p>
 
   <div>
-    <label className="mb-1 block text-sm font-extrabold uppercase tracking-wide text-foreground">
+    <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-muted-foreground">
       OPERADOR
     </label>
 
@@ -1818,20 +1818,20 @@ Fecha: ${date}`;
       value={operador}
       onChange={(e) => setOperador(e.target.value)}
       placeholder=""
-      className="h-12 w-full rounded-lg border-2 border-input bg-secondary px-3 text-base font-semibold text-foreground outline-none focus:border-primary"
+      className="h-12 w-full min-w-0 rounded-lg border border-input bg-background px-3 text-base font-medium text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15"
     />
   </div>
 </div>
 
 {/* Inputs */}
 <div className="border-t border-border px-4 pb-5 pt-5 sm:px-6">
-  <p className="mb-3 text-sm font-extrabold uppercase tracking-widest text-foreground">
-    DATOS DE LA LABOR
+  <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
+    02 · DATOS DE LA LABOR
   </p>
 
   <div className="grid grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] gap-3">
     <div>
-      <label className="mb-1 block text-sm font-extrabold uppercase tracking-wide text-foreground">
+      <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-muted-foreground">
         NIVEL
       </label>
 
@@ -1840,12 +1840,12 @@ Fecha: ${date}`;
         value={nivel}
         onChange={(e) => setNivel(e.target.value)}
         placeholder=""
-        className="h-12 w-full rounded-lg border-2 border-input bg-secondary px-3 text-base font-semibold text-foreground outline-none focus:border-primary"
+        className="h-12 w-full min-w-0 rounded-lg border border-input bg-background px-3 text-base font-medium text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15"
       />
     </div>
 
     <div>
-      <label className="mb-1 block text-sm font-extrabold uppercase tracking-wide text-foreground">
+      <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-muted-foreground">
         LABOR
       </label>
 
@@ -1854,7 +1854,7 @@ Fecha: ${date}`;
         value={labor}
         onChange={(e) => setLabor(e.target.value)}
         placeholder=""
-        className="h-12 w-full rounded-lg border-2 border-input bg-secondary px-3 text-base font-semibold text-foreground outline-none focus:border-primary"
+        className="h-12 w-full min-w-0 rounded-lg border border-input bg-background px-3 text-base font-medium text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15"
       />
     </div>
     </div>
@@ -1923,11 +1923,11 @@ Fecha: ${date}`;
 </div>
 {(mode === "avance" || mode === "malla") && (
   <div className="border-t border-border px-4 pb-5 pt-5 sm:px-6">
-    <p className="mb-3 text-sm font-extrabold uppercase tracking-widest text-foreground">
-      PARÁMETRO DEL CÁLCULO
+    <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
+      04 · PARÁMETRO DEL CÁLCULO
     </p>
 
-    <div className="flex items-center justify-between rounded-lg border-2 border-input bg-secondary px-4 py-3">
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background/60 px-3 py-2.5 sm:px-4">
       <label
         htmlFor="espesor"
         className="text-sm font-extrabold uppercase tracking-wide text-foreground"
@@ -1942,7 +1942,7 @@ Fecha: ${date}`;
           setEspesor(e.target.value);
           invalidateCalculation();
         }}
-        className="h-11 w-28 rounded-lg border-2 border-input bg-background px-3 text-center text-lg font-bold tabular-nums text-foreground outline-none focus:border-primary"
+        className="h-11 w-28 rounded-lg border border-input bg-card px-3 text-center text-lg font-bold tabular-nums text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
       >
         <option value="1">1"</option>
         <option value="1.5">1.5"</option>
@@ -1955,7 +1955,7 @@ Fecha: ${date}`;
 )}
 
 <div className="border-t-2 border-border px-4 pb-4 pt-5 sm:px-6">
-  <p className="mb-3 text-sm font-extrabold uppercase tracking-widest text-foreground">
+  <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
     OBSERVACIONES
   </p>
 
@@ -1965,9 +1965,9 @@ Fecha: ${date}`;
       setObservaciones(e.target.value);
       invalidateCalculation();
     }}
-    rows={4}
-    placeholder="Escribe una observación..."
-    className="w-full resize-none rounded-lg border-2 border-input bg-secondary px-3 py-3 text-base font-semibold text-foreground outline-none focus:border-primary"
+    rows={3}
+    placeholder="Observaciones de la labor (opcional)"
+    className="w-full resize-y rounded-xl border border-input bg-background px-3 py-3 text-sm font-medium leading-relaxed text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15"
   />
 </div>
 
@@ -2131,36 +2131,36 @@ Fecha: ${date}`;
 
           {/* Verification table */}
 <div className="mt-6 overflow-x-auto rounded-xl border border-border">
-  <table className="w-full min-w-[420px] text-left text-sm">
+  <table className="w-full text-left text-xs sm:text-sm">
     <thead>
-      <tr className="bg-secondary text-xs uppercase tracking-widest text-muted-foreground">
-        <th className="px-4 py-3">Concepto</th>
-        <th className="px-4 py-3 text-right">Valor</th>
-        <th className="px-4 py-3 text-right">Unidad</th>
+      <tr className="bg-secondary/70 text-[10px] uppercase tracking-wide text-muted-foreground sm:text-xs">
+        <th className="px-2.5 py-3 sm:px-4">Concepto</th>
+        <th className="px-2.5 py-3 sm:px-4 text-right">Valor</th>
+        <th className="px-2.5 py-3 sm:px-4 text-right">Unidad</th>
       </tr>
     </thead>
 
     <tbody className="tabular-nums">
       <tr className="border-t border-border">
-        <td className="px-4 py-2.5">
+        <td className="px-2.5 py-2.5 sm:px-4">
           Perímetro
         </td>
-        <td className="px-4 py-2.5 text-right font-bold">
+        <td className="px-2.5 py-2.5 sm:px-4 text-right font-bold">
           {fmt2(shown.P)}
         </td>
-        <td className="px-4 py-2.5 text-right text-muted-foreground">
+        <td className="px-2.5 py-2.5 sm:px-4 text-right text-muted-foreground">
           m
         </td>
       </tr>
 
       <tr className="border-t border-border">
-        <td className="px-4 py-2.5">
+        <td className="px-2.5 py-2.5 sm:px-4">
           Área
         </td>
-        <td className="px-4 py-2.5 text-right font-bold">
+        <td className="px-2.5 py-2.5 sm:px-4 text-right font-bold">
           {fmt2(shown.area)}
         </td>
-        <td className="px-4 py-2.5 text-right text-muted-foreground">
+        <td className="px-2.5 py-2.5 sm:px-4 text-right text-muted-foreground">
           m²
         </td>
       </tr>
@@ -2169,99 +2169,99 @@ Fecha: ${date}`;
         <>
 
           <tr className="border-t border-border">
-            <td className="px-4 py-2.5">
+            <td className="px-2.5 py-2.5 sm:px-4">
               SH SACRIFICIO 1"
             </td>
-            <td className="px-4 py-2.5 text-right font-bold text-primary">
+            <td className="px-2.5 py-2.5 sm:px-4 text-right font-bold text-primary">
               {fmt(shown.sh1)}
             </td>
-            <td className="px-4 py-2.5 text-right text-muted-foreground">
+            <td className="px-2.5 py-2.5 sm:px-4 text-right text-muted-foreground">
               m³
             </td>
           </tr>
 
           <tr className="border-t border-border">
-            <td className="px-4 py-2.5">
+            <td className="px-2.5 py-2.5 sm:px-4">
               M³ Labor 1
             </td>
-            <td className="px-4 py-2.5 text-right font-bold text-primary">
+            <td className="px-2.5 py-2.5 sm:px-4 text-right font-bold text-primary">
               {fmt(shown.vReal1)}
             </td>
-            <td className="px-4 py-2.5 text-right text-muted-foreground">
+            <td className="px-2.5 py-2.5 sm:px-4 text-right text-muted-foreground">
               m³
             </td>
           </tr>
 
           <tr className="border-t border-border">
-            <td className="px-4 py-2.5">
+            <td className="px-2.5 py-2.5 sm:px-4">
               SH SACRIFICIO 2"
             </td>
-            <td className="px-4 py-2.5 text-right font-bold text-primary">
+            <td className="px-2.5 py-2.5 sm:px-4 text-right font-bold text-primary">
               {fmt(shown.sh2)}
             </td>
-            <td className="px-4 py-2.5 text-right text-muted-foreground">
+            <td className="px-2.5 py-2.5 sm:px-4 text-right text-muted-foreground">
               m³
             </td>
           </tr>
 
           <tr className="border-t border-border">
-            <td className="px-4 py-2.5">
+            <td className="px-2.5 py-2.5 sm:px-4">
               M³ Labor 2
             </td>
-            <td className="px-4 py-2.5 text-right font-bold text-primary">
+            <td className="px-2.5 py-2.5 sm:px-4 text-right font-bold text-primary">
               {fmt(shown.vReal2)}
             </td>
-            <td className="px-4 py-2.5 text-right text-muted-foreground">
+            <td className="px-2.5 py-2.5 sm:px-4 text-right text-muted-foreground">
               m³
             </td>
           </tr>
 
           <tr className="border-t border-border bg-primary/5">
-            <td className="px-4 py-2.5">
+            <td className="px-2.5 py-2.5 sm:px-4">
               Calibradores
             </td>
-            <td className="px-4 py-2.5 text-right font-bold text-primary">
+            <td className="px-2.5 py-2.5 sm:px-4 text-right font-bold text-primary">
               {shown.calib}
             </td>
-            <td className="px-4 py-2.5 text-right text-muted-foreground">
+            <td className="px-2.5 py-2.5 sm:px-4 text-right text-muted-foreground">
               und
             </td>
           </tr>
         </>
       ) : mode === "malla" ? (
         <tr className="border-t border-border bg-primary/5">
-          <td className="px-4 py-2.5">
+          <td className="px-2.5 py-2.5 sm:px-4">
             Volumen de malla
           </td>
-          <td className="px-4 py-2.5 text-right font-bold text-primary">
+          <td className="px-2.5 py-2.5 sm:px-4 text-right font-bold text-primary">
             {fmt(shown.vMalla, 2)}
           </td>
-          <td className="px-4 py-2.5 text-right text-muted-foreground">
+          <td className="px-2.5 py-2.5 sm:px-4 text-right text-muted-foreground">
             m³
           </td>
         </tr>
       ) : (
         <>
           <tr className="border-t border-border bg-primary/5">
-            <td className="px-4 py-2.5">
+            <td className="px-2.5 py-2.5 sm:px-4">
               Volumen de resane (Área / 11.5)
             </td>
-            <td className="px-4 py-2.5 text-right font-bold text-primary">
+            <td className="px-2.5 py-2.5 sm:px-4 text-right font-bold text-primary">
               {fmt2(shown.vResane)}
             </td>
-            <td className="px-4 py-2.5 text-right text-muted-foreground">
+            <td className="px-2.5 py-2.5 sm:px-4 text-right text-muted-foreground">
               m³
             </td>
           </tr>
 
           <tr className="border-t border-border bg-primary/5">
-            <td className="px-4 py-2.5">
+            <td className="px-2.5 py-2.5 sm:px-4">
               Calibradores
             </td>
-            <td className="px-4 py-2.5 text-right font-bold text-primary">
+            <td className="px-2.5 py-2.5 sm:px-4 text-right font-bold text-primary">
               {shown.calib}
             </td>
-            <td className="px-4 py-2.5 text-right text-muted-foreground">
+            <td className="px-2.5 py-2.5 sm:px-4 text-right text-muted-foreground">
               und
             </td>
           </tr>
@@ -2274,7 +2274,7 @@ Fecha: ${date}`;
 {/* Evidencia fotográfica */}
 <div className="mt-6 border-t border-border pt-6">
   <div className="mb-3">
-    <p className="text-sm font-extrabold uppercase tracking-widest text-foreground">
+    <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
       EVIDENCIA FOTOGRÁFICA
     </p>
 
@@ -2284,7 +2284,7 @@ Fecha: ${date}`;
   </div>
 
   <div className="grid grid-cols-2 gap-3">
-    <label className="flex h-14 cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-bold uppercase text-primary-foreground">
+    <label className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-2 text-xs font-bold uppercase text-primary-foreground sm:text-sm">
       <Camera className="size-5" />
       Tomar foto
 
@@ -2301,7 +2301,7 @@ Fecha: ${date}`;
       />
     </label>
 
-    <label className="flex h-14 cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-input bg-secondary px-3 text-sm font-bold uppercase text-foreground">
+    <label className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-input bg-secondary px-2 text-xs font-bold uppercase text-foreground sm:text-sm">
       <ImagePlus className="size-5" />
       Galería
 
@@ -2352,21 +2352,21 @@ Fecha: ${date}`;
 
 <button
   onClick={generatePDF}
-  className="mt-6 flex h-14 w-full items-center justify-center gap-2 rounded-lg border-2 border-primary bg-primary/10 font-display text-xl font-bold uppercase tracking-wider text-primary transition-all hover:bg-primary/20"
+  className="mt-6 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-primary/40 bg-primary/10 px-3 font-display text-lg font-bold uppercase tracking-wide text-primary transition-colors hover:bg-primary/20"
 >
   Descargar PDF
 </button>
 
 <button
   onClick={sharePDF}
-  className="mt-3 flex h-14 w-full items-center justify-center gap-2 rounded-lg border-2 border-primary bg-primary font-display text-xl font-bold uppercase tracking-wider text-primary-foreground transition-all hover:brightness-110"
+  className="mt-2 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 font-display text-lg font-bold uppercase tracking-wide text-primary-foreground transition-colors hover:brightness-110"
 >
   Compartir PDF
 </button>
 
           <button
             onClick={copyReport}
-            className="mt-3 flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-primary font-display text-xl font-bold uppercase tracking-wider text-primary-foreground transition-all hover:brightness-110"
+            className="mt-2 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-border bg-secondary px-3 font-display text-lg font-bold uppercase tracking-wide text-foreground transition-colors hover:bg-secondary/80"
           >
             {copied ? (
               <Check className="size-5" />
