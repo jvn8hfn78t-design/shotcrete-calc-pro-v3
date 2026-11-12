@@ -1,863 +1,180 @@
-import { CorrespondenciasFotos } from "./CorrespondenciasFotos";
-import { PilotoLabor3D } from "./PilotoLabor3D";
-import { CapturaVideo3D } from "./CapturaVideo3D";
-import { EscaneoContinuo3D } from "./EscaneoContinuo3D";
 import { useEffect, useRef, useState } from "react";
-import { DiagnosticoDispositivo } from "./DiagnosticoDispositivo";
-import { PruebaRendimiento } from "./PruebaRendimiento";
-import { PreparacionFotografias } from "./PreparacionFotografias";
-import {
-  guardarLevantamiento,
-  obtenerLevantamiento,
-  type LevantamientoGuardado,
-  type EstacionGuardada,
-  type GrupoCaptura,
-} from "@/lib/fotogrametria-store";
-import {
-  Camera,
-  ImagePlus,
-  Ruler,
-  Trash2,
-  ScanLine,
-  Info,
-} from "lucide-react";
 
-type Photo = {
-  id: string;
-  preview: string;
-  file: File;
+const DB = "shotcrete-escaneo-video";
+const STORE = "capturas";
 
-  grupoCaptura?: GrupoCaptura;
-  estacionId?: string;
-
-  fechaRegistro: string;
-  tamanoBytes: number;
-};
-
-const MAX_PHOTOS = 30;
-const DISTANCIA_MAXIMA_ESTACIONES = 2.5;
-
-function proponerEstaciones(longitud: number): EstacionGuardada[] {
-  if (!Number.isFinite(longitud) || longitud <= 0) {
-    return [];
-  }
-
-  const cantidadIntervalos = Math.ceil(
-    longitud / DISTANCIA_MAXIMA_ESTACIONES,
-  );
-
-  return Array.from({ length: cantidadIntervalos + 1 }, (_, index) => {
-    const progresiva = Number(
-      ((longitud * index) / cantidadIntervalos).toFixed(2),
-    );
-
-    return {
-      id: `estacion-${index + 1}`,
-      nombre:
-        index === 0
-          ? "Inicio"
-          : index === cantidadIntervalos
-            ? "Final"
-            : `Estación ${index}`,
-      progresiva,
+function abrirBD(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB, 1);
+    req.onupgradeneeded = () => {
+      if (!req.result.objectStoreNames.contains(STORE)) req.result.createObjectStore(STORE);
     };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
   });
+}
+async function guardarVideo(blob: Blob) {
+  const db = await abrirBD();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE, "readwrite");
+      tx.objectStore(STORE).put(blob, "ultimo-video");
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  } finally { db.close(); }
+}
+async function leerVideo(): Promise<Blob | undefined> {
+  const db = await abrirBD();
+  try {
+    return await new Promise((resolve, reject) => {
+      const req = db.transaction(STORE, "readonly").objectStore(STORE).get("ultimo-video");
+      req.onsuccess = () => resolve(req.result as Blob | undefined);
+      req.onerror = () => reject(req.error);
+    });
+  } finally { db.close(); }
 }
 
 export function Fotogrametria() {
-  const cameraRef = useRef<HTMLInputElement>(null);
-  const galleryRef = useRef<HTMLInputElement>(null);
-
+  const vista = useRef<HTMLVideoElement>(null);
+  const camara = useRef<MediaStream | null>(null);
+  const grabador = useRef<MediaRecorder | null>(null);
+  const trozos = useRef<Blob[]>([]);
+  const urlActual = useRef<string | null>(null);
+  const [grabando, setGrabando] = useState(false);
+  const [preparando, setPreparando] = useState(false);
+  const [video, setVideo] = useState<Blob | null>(null);
+  const [mensaje, setMensaje] = useState("Listo para iniciar el escaneo.");
+  const [duracion, setDuracion] = useState(0);
+  const inicio = useRef(0);
+  const reloj = useRef<number | null>(null);
   const [labor, setLabor] = useState("");
   const [nivel, setNivel] = useState("");
-  const [zona, setZona] = useState("");
-  const [longitudMetros, setLongitudMetros] = useState("");
-  const [estaciones, setEstaciones] = useState<EstacionGuardada[]>([]);
-  const [grupoCaptura, setGrupoCaptura] = useState<GrupoCaptura>("recorrido");
-  const [estacionSeleccionada, setEstacionSeleccionada] = useState("");
-  const [scale, setScale] = useState("");
-  const [unit, setUnit] = useState("cm");
-  const [scaleDescription, setScaleDescription] = useState("");
-  const [photos, setPhotos] = useState<Photo[]>([]);
-  const [datosCargados, setDatosCargados] = useState(false);
+  const [tipo, setTipo] = useState<"antes" | "despues">("antes");
 
-  const [estadoGuardado, setEstadoGuardado] = useState<
-    "cargando" | "guardando" | "guardado" | "error"
-  >("cargando");
-
-  const fotosRef = useRef<Photo[]>([]);
-  const colaGuardadoRef = useRef<Promise<void>>(Promise.resolve());
-
-  const levantamientoRef = useRef<LevantamientoGuardado | null>(null);
-  const datosListosRef = useRef(false);
-
-  fotosRef.current = photos;
-    const encolarGuardado = (
-    levantamiento: LevantamientoGuardado,
-    actualizarEstado = true,
-  ) => {
-    colaGuardadoRef.current = colaGuardadoRef.current
-      .catch(() => undefined)
-      .then(() => guardarLevantamiento(levantamiento))
-      .then(() => {
-        if (actualizarEstado) {
-          setEstadoGuardado("guardado");
-        }
-      })
-      .catch(error => {
-        console.error("Error al guardar fotogrametría:", error);
-
-        if (actualizarEstado) {
-          setEstadoGuardado("error");
-        }
-      });
-
-    return colaGuardadoRef.current;
-  };
-    useEffect(() => {
+  function cerrarCamara() {
+    if (reloj.current !== null) window.clearInterval(reloj.current);
+    reloj.current = null;
+    camara.current?.getTracks().forEach(track => track.stop());
+    camara.current = null;
+    if (vista.current) vista.current.srcObject = null;
+    setGrabando(false);
+  }
+  useEffect(() => {
     let activo = true;
-
-    const cargar = async () => {
-      try {
-        const guardado = await obtenerLevantamiento();
-
-        if (!activo) return;
-
-        if (guardado) {
-                    setLabor(guardado.labor);
-          setNivel(guardado.nivel);
-          setZona(guardado.zona);
-
-          const longitudGuardada = guardado.longitudMetros;
-
-          setLongitudMetros(
-            longitudGuardada !== undefined
-              ? String(longitudGuardada)
-              : "",
-          );
-
-          setEstaciones(
-            guardado.estaciones ??
-              (longitudGuardada
-                ? proponerEstaciones(longitudGuardada)
-                : []),
-          );
-
-          setScale(guardado.escala);
-          setUnit(guardado.unidad);
-          setScaleDescription(guardado.descripcionEscala);
-
-          const fotosRecuperadas: Photo[] = guardado.fotos.map(foto => {
-  const file = new File([foto.blob], foto.nombre, {
-    type: foto.tipo,
-  });
-
-  return {
-    id: foto.id,
-    file,
-    preview: URL.createObjectURL(foto.blob),
-    grupoCaptura: foto.grupoCaptura ?? "recorrido",
-    estacionId: foto.estacionId,
-    fechaRegistro:
-      foto.fechaRegistro ?? new Date().toISOString(),
-    tamanoBytes: foto.tamanoBytes ?? foto.blob.size,
-  };
-});
-
-setPhotos(fotosRecuperadas);
-        }
-
-        setEstadoGuardado("guardado");
-      } catch (error) {
-        console.error("Error al recuperar fotogrametría:", error);
-        setEstadoGuardado("error");
-      } finally {
-        if (activo) {
-          datosListosRef.current = true;
-          setDatosCargados(true);
-        }
-      }
-    };
-
-    void cargar();
-
+    void leerVideo().then(blob => {
+      if (activo && blob) { setVideo(blob); setMensaje("Último video recuperado de este dispositivo."); }
+    }).catch(() => { if (activo) setMensaje("No se pudo recuperar el video anterior."); });
     return () => {
       activo = false;
+      if (reloj.current !== null) window.clearInterval(reloj.current);
+      camara.current?.getTracks().forEach(track => track.stop());
+      if (grabador.current?.state === "recording") grabador.current.stop();
+      if (urlActual.current) URL.revokeObjectURL(urlActual.current);
     };
   }, []);
-    useEffect(() => {
-    if (!datosCargados) return;
 
-        levantamientoRef.current = {
-      id: "levantamiento-actual",
-      labor,
-      nivel,
-      zona,
-      tipoLevantamiento: "antes",
-      longitudMetros:
-        longitudMetros.trim() !== "" &&
-        Number.isFinite(Number(longitudMetros)) &&
-        Number(longitudMetros) > 0
-          ? Number(longitudMetros)
-          : undefined,
-      estaciones,
-      escala: scale,
-      unidad: unit,
-      descripcionEscala: scaleDescription,
-      fotos: photos.map(photo => ({
-  id: photo.id,
-  nombre: photo.file.name,
-  tipo: photo.file.type,
-  blob: photo.file,
-  grupoCaptura: photo.grupoCaptura ?? "recorrido",
-  estacionId: photo.estacionId,
-  fechaRegistro: photo.fechaRegistro,
-  tamanoBytes: photo.tamanoBytes,
-})),
-      actualizadoEn: new Date().toISOString(),
-    };
-  }, [
-    datosCargados,
-    labor,
-    nivel,
-    zona,
-    longitudMetros,
-    estaciones,
-    scale,
-    unit,
-    scaleDescription,
-    photos,
-  ]);
-    useEffect(() => {
-    if (!datosCargados) return;
-
-    setEstadoGuardado("guardando");
-
-    const temporizador = window.setTimeout(() => {
-      const levantamiento = levantamientoRef.current;
-
-      if (levantamiento) {
-        void encolarGuardado(levantamiento);
-      }
-    }, 600);
-
-    return () => {
-      window.clearTimeout(temporizador);
-    };
-  }, [
-    datosCargados,
-    labor,
-    nivel,
-    zona,
-    longitudMetros,
-    estaciones,
-    scale,
-    unit,
-    scaleDescription,
-    photos,
-  ]);
-    useEffect(() => {
-    return () => {
-      if (!datosListosRef.current) return;
-
-      const ultimoLevantamiento = levantamientoRef.current;
-
-      if (ultimoLevantamiento) {
-        void encolarGuardado(ultimoLevantamiento, false);
-      }
-
-      fotosRef.current.forEach(photo => {
-        URL.revokeObjectURL(photo.preview);
+  async function iniciar() {
+    if (grabando || preparando) return;
+    setPreparando(true);
+    try {
+      if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined")
+        throw new Error("Este navegador no admite grabación continua. Abre la aplicación en Safari con HTTPS.");
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24 } },
       });
-    };
-  }, []);
-  
-const agregarArchivos = (files: File[]) => {
-  if (!files.length) return;
-
-  if (grupoCaptura === "estacion" && !estacionSeleccionada) {
-    window.alert(
-      "Selecciona una estación de control antes de agregar fotografías.",
-    );
-    return;
+      camara.current = stream;
+      if (!vista.current) throw new Error("No se encontró la vista de cámara.");
+      vista.current.srcObject = stream;
+      await vista.current.play();
+      const tipos = ["video/mp4", "video/webm;codecs=vp8", "video/webm"];
+      const mime = tipos.find(t => MediaRecorder.isTypeSupported(t));
+      const recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      grabador.current = recorder;
+      trozos.current = [];
+      recorder.ondataavailable = e => { if (e.data.size > 0) trozos.current.push(e.data); };
+      recorder.onerror = () => { setMensaje("Error de grabación. Comprueba espacio libre."); cerrarCamara(); };
+      recorder.onstop = () => {
+        const blob = new Blob(trozos.current, { type: recorder.mimeType || "video/mp4" });
+        cerrarCamara();
+        if (!blob.size) { setMensaje("No se obtuvo un video válido."); return; }
+        setVideo(blob);
+        setMensaje("Video capturado. Guardando en este dispositivo…");
+        void guardarVideo(blob).then(() => setMensaje("Video guardado localmente. Puedes exportarlo para reconstrucción 3D."))
+          .catch(() => setMensaje("Video capturado, pero no se pudo guardar. Expórtalo antes de salir."));
+      };
+      recorder.start(1000);
+      inicio.current = Date.now();
+      setDuracion(0);
+      reloj.current = window.setInterval(() => setDuracion(Math.floor((Date.now() - inicio.current) / 1000)), 1000);
+      setGrabando(true);
+      setMensaje("Grabando video continuo. Recorre lentamente toda la superficie.");
+    } catch (error) {
+      cerrarCamara();
+      setMensaje(error instanceof Error ? error.message : "No se pudo iniciar la cámara.");
+    } finally { setPreparando(false); }
+  }
+  function detener() {
+    const r = grabador.current;
+    if (r?.state === "recording") {
+      setMensaje("Finalizando y guardando el video…");
+      r.stop();
+    }
+  }
+  function exportar() {
+    if (!video) return;
+    const url = URL.createObjectURL(video);
+    if (urlActual.current) URL.revokeObjectURL(urlActual.current);
+    urlActual.current = url;
+    const a = document.createElement("a");
+    a.href = url;
+    const ext = video.type.includes("webm") ? "webm" : "mp4";
+    const nombre = (labor.trim() || "levantamiento").replace(/[^a-zA-Z0-9_-]/g, "_");
+    a.download = `escaneo_${nombre}_${tipo}_${new Date().toISOString().slice(0,10)}.${ext}`;
+    a.click();
   }
 
-  const available = MAX_PHOTOS - photos.length;
-
-  const selected = files
-    .filter(file => file.type.startsWith("image/"))
-    .filter(file => file.size <= 25 * 1024 * 1024)
-    .slice(0, available);
-
-  const newPhotos: Photo[] = selected.map(file => ({
-    id: crypto.randomUUID(),
-    file,
-    preview: URL.createObjectURL(file),
-    grupoCaptura,
-    estacionId:
-      grupoCaptura === "estacion"
-        ? estacionSeleccionada
-        : undefined,
-    fechaRegistro: new Date().toISOString(),
-    tamanoBytes: file.size,
-  }));
-
-  setPhotos(current => [...current, ...newPhotos]);
-
-  if (cameraRef.current) cameraRef.current.value = "";
-  if (galleryRef.current) galleryRef.current.value = "";
-};
-  const addPhotos = (files: FileList | null) => agregarArchivos(files ? Array.from(files) : []);
-  const removePhoto = (id: string) => {
-    setPhotos(current => {
-      const photo = current.find(item => item.id === id);
-      if (photo) URL.revokeObjectURL(photo.preview);
-      return current.filter(item => item.id !== id);
-    });
-  };
-
-  const parRecorrido = photos.filter(foto => (foto.grupoCaptura ?? "recorrido") === "recorrido");
-
-  return (
-    <div className="mx-auto max-w-6xl space-y-6">
-
-      <header className="space-y-2">
-        <div className="flex items-center gap-3">
-          <div className="rounded-xl bg-primary/10 p-3 text-primary">
-            <ScanLine className="size-6" />
-          </div>
-          <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-primary">
-              Nuevo módulo
-            </p>
-            <h2 className="text-2xl font-black uppercase">
-              Fotogrametría
-            </h2>
-          </div>
-        </div>
-
-        <p className="text-sm text-muted-foreground">
-          Levantamiento fotográfico para reconstrucción tridimensional
-          y cubicación con geometría real.
-        </p>
-                <p className="text-xs font-semibold text-muted-foreground">
-          {estadoGuardado === "cargando" && "Recuperando levantamiento..."}
-          {estadoGuardado === "guardando" && "Guardando datos y fotografías..."}
-          {estadoGuardado === "guardado" && "✓ Datos guardados en este dispositivo"}
-          {estadoGuardado === "error" &&
-            "No se pudo guardar. Revisa el almacenamiento del dispositivo."}
-        </p>
-      </header>
-
-            <DiagnosticoDispositivo />
-
-<PruebaRendimiento />
-
-<PilotoLabor3D />
-
-
-
-<PreparacionFotografias fotos={photos} />
-<CorrespondenciasFotos key={parRecorrido.map(foto => foto.id).join("|")} fotos={parRecorrido} />
-      <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
-        <div className="flex gap-2">
-          <Info className="size-4 shrink-0 text-amber-500" />
-          <p className="text-xs text-muted-foreground">
-            Primera etapa: captura y registro de información.
-            La reconstrucción 3D y los cálculos todavía no están implementados.
-          </p>
-        </div>
-      </div>
-
-      <section className="space-y-4 rounded-xl border border-border bg-card p-4 sm:p-6">
-        <h3 className="font-bold uppercase">1. Datos del levantamiento</h3>
-
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <label className="space-y-1">
-            <span className="text-xs font-semibold">Labor</span>
-            <input
-              value={labor}
-              onChange={e => setLabor(e.target.value)}
-              placeholder="Ej. Galería 120"
-              className="h-11 w-full rounded-lg border border-input bg-background px-3"
-            />
-          </label>
-
-          <label className="space-y-1">
-            <span className="text-xs font-semibold">Nivel</span>
-            <input
-              value={nivel}
-              onChange={e => setNivel(e.target.value)}
-              placeholder="Ej. Nivel 180"
-              className="h-11 w-full rounded-lg border border-input bg-background px-3"
-            />
-          </label>
-
-          <label className="space-y-1">
-            <span className="text-xs font-semibold">Zona / progresiva</span>
-            <input
-              value={zona}
-              onChange={e => setZona(e.target.value)}
-              placeholder="Referencia de ubicación"
-              className="h-11 w-full rounded-lg border border-input bg-background px-3"
-            />
-          </label>
-        </div>
-      </section>
-
-      <section className="space-y-4 rounded-xl border border-border bg-card p-4 sm:p-6">
-        <h3 className="font-bold uppercase">
-          2. Longitud y estaciones de control
-        </h3>
-
-        <p className="text-sm text-muted-foreground">
-          Registra la longitud de la labor. La aplicación propondrá
-          estaciones de control desde el inicio hasta el tope.
-        </p>
-
-        <label className="block max-w-sm space-y-1">
-          <span className="text-xs font-semibold">
-            Longitud total de la labor (metros)
-          </span>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={longitudMetros}
-            onChange={e => {
-              const valor = e.target.value;
-              setLongitudMetros(valor);
-
-              const longitud = Number(valor);
-
-              setEstaciones(
-                valor.trim() !== "" &&
-                  Number.isFinite(longitud) &&
-                  longitud > 0
-                  ? proponerEstaciones(longitud)
-                  : [],
-              );
-            }}
-            placeholder="Ej. 3.80"
-            className="h-11 w-full rounded-lg border border-input bg-background px-3"
-          />
+  return <div className="mx-auto max-w-3xl space-y-5">
+    <header className="space-y-2">
+      <h2 className="text-2xl font-black uppercase">Escaneo 3D · Fotogrametría</h2>
+      <p className="text-sm text-muted-foreground">Captura continua por video, sin internet. El video es la entrada para el futuro motor de reconstrucción multivista.</p>
+    </header>
+    <section className="space-y-3 rounded-xl border bg-card p-4">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="space-y-1 text-sm">Labor / objeto
+          <input value={labor} onChange={e => setLabor(e.target.value)} placeholder="Ej. Galería 120 o caja de prueba" className="h-11 w-full rounded-lg border bg-background px-3" />
         </label>
-
-        <div className="rounded-lg border border-border p-3">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-bold">
-              Estaciones propuestas
-            </p>
-            <span className="text-xs font-semibold text-muted-foreground">
-              {estaciones.length} puntos
-            </span>
-          </div>
-
-          {estaciones.length === 0 ? (
-            <p className="mt-3 text-sm text-muted-foreground">
-              Ingresa una longitud válida para generar las estaciones.
-            </p>
-          ) : (
-            <div className="mt-3 space-y-2">
-              {estaciones.map(estacion => (
-                <div
-                  key={estacion.id}
-                  className="flex items-center justify-between rounded-lg bg-secondary/60 px-3 py-2"
-                >
-                  <span className="text-sm font-semibold">
-                    {estacion.nombre}
-                  </span>
-                  <span className="text-sm font-bold tabular-nums">
-                    {estacion.progresiva.toFixed(2)} m
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <p className="text-xs text-muted-foreground">
-          La distribución es automática y utiliza intervalos máximos
-          aproximados de 2.5 metros. Las estaciones son referencias
-          de control para el levantamiento, no reemplazan el recorrido
-          fotográfico continuo.
-        </p>
-      </section>
-      <section className="space-y-4 rounded-xl border border-border bg-card p-4 sm:p-6">
-        <div className="flex items-center justify-between">
-          <h3 className="font-bold uppercase">3. Fotografías</h3>
-          <span className="text-xs font-semibold text-muted-foreground">
-            {photos.length}/{MAX_PHOTOS}
-          </span>
-        </div>
-
-        <EscaneoContinuo3D disponibles={MAX_PHOTOS - photos.length} onFotogramas={agregarArchivos} />
-
-        <CapturaVideo3D disponibles={MAX_PHOTOS - photos.length} onFotogramas={agregarArchivos} />
-
-        <div className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-4">
-  <div className="flex items-center gap-2">
-    <Info className="size-5 text-primary" />
-    <p className="text-sm font-bold">
-      Guía para la captura fotogramétrica
-    </p>
-  </div>
-
-  <div className="space-y-2 text-sm text-muted-foreground">
-    <p>
-      <strong>1. Recorrido continuo:</strong> avanza desde el inicio
-      hacia el tope, fotografiando la corona y ambos hastiales.
-    </p>
-
-    <p>
-      <strong>2. Superposición:</strong> procura que entre fotografías
-      consecutivas se repita aproximadamente el 70–80 % de la superficie.
-    </p>
-
-    <p>
-      <strong>3. Estaciones de control:</strong> toma fotografías
-      adicionales desde los puntos propuestos para reforzar la cobertura.
-    </p>
-
-    <p>
-      <strong>4. Sacrificio:</strong> fotografía el frente del tope
-      de manera independiente, procurando cubrir toda su superficie.
-    </p>
-
-    <p>
-      <strong>5. Calidad:</strong> evita imágenes movidas, zonas
-      excesivamente oscuras, reflejos fuertes y cambios bruscos de distancia.
-    </p>
-
-    <p>
-      <strong>6. Escala:</strong> utiliza una referencia física de
-      dimensión conocida, visible y verificable en las fotografías.
-    </p>
-  </div>
-
-  <p className="text-xs font-medium text-muted-foreground">
-    Estas recomendaciones orientan la captura; no garantizan por sí solas
-    que las fotografías sean suficientes para reconstruir un modelo 3D.
-  </p>
-</div>
-
-<div className="grid gap-3 sm:grid-cols-2">
-  <label className="space-y-1">
-    <span className="text-xs font-semibold">Tipo de captura</span>
-    <select
-      value={grupoCaptura}
-      onChange={e => {
-        setGrupoCaptura(e.target.value as GrupoCaptura);
-        setEstacionSeleccionada("");
-      }}
-      className="h-11 w-full rounded-lg border border-input bg-background px-3"
-    >
-      <option value="recorrido">Recorrido continuo</option>
-      <option value="estacion">Estación de control</option>
-      <option value="sacrificio">Sacrificio (tope)</option>
-    </select>
-  </label>
-
-  {grupoCaptura === "estacion" && (
-    <label className="space-y-1">
-      <span className="text-xs font-semibold">Estación</span>
-      <select
-        value={estacionSeleccionada}
-        onChange={e => setEstacionSeleccionada(e.target.value)}
-        className="h-11 w-full rounded-lg border border-input bg-background px-3"
-      >
-        <option value="">Seleccionar estación</option>
-        {estaciones.map(estacion => (
-          <option key={estacion.id} value={estacion.id}>
-            {estacion.nombre} — {estacion.progresiva.toFixed(2)} m
-          </option>
-        ))}
-      </select>
-    </label>
-  )}
-</div>
-
-<div className="grid gap-3 sm:grid-cols-2">
-          <button
-            type="button"
-            onClick={() => cameraRef.current?.click()}
-            className="flex h-14 items-center justify-center gap-2 rounded-lg bg-primary font-bold text-primary-foreground"
-          >
-            <Camera className="size-5" />
-            TOMAR FOTOGRAFÍAS
-          </button>
-
-          <button
-            type="button"
-            onClick={() => galleryRef.current?.click()}
-            className="flex h-14 items-center justify-center gap-2 rounded-lg border border-border bg-secondary font-bold"
-          >
-            <ImagePlus className="size-5" />
-            ELEGIR DE GALERÍA
-          </button>
-        </div>
-
-        <input
-          ref={cameraRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          multiple
-          hidden
-          onChange={e => addPhotos(e.target.files)}
-        />
-
-        <input
-          ref={galleryRef}
-          type="file"
-          accept="image/*"
-          multiple
-          hidden
-          onChange={e => addPhotos(e.target.files)}
-        />
-
-        {photos.length === 0 ? (
-          <div className="flex min-h-32 flex-col items-center justify-center rounded-lg border border-dashed border-border text-center">
-            <ImagePlus className="mb-2 size-7 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              No hay fotografías agregadas
-            </p>
-          </div>
-        ) : (
-          
-<div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-  {photos.map((photo, index) => (
-    <div
-      key={photo.id}
-      className="overflow-hidden rounded-lg border border-border"
-    >
-      <img
-        src={photo.preview}
-        alt={`Fotografía ${index + 1}`}
-        className="aspect-square w-full object-cover"
-      />
-
-      <div className="space-y-1 p-2">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold">
-            Foto {index + 1}
-          </span>
-
-          <button
-            type="button"
-            onClick={() => removePhoto(photo.id)}
-            aria-label="Eliminar fotografía"
-            className="text-destructive"
-          >
-            <Trash2 className="size-4" />
-          </button>
-        </div>
-
-        <p className="text-xs font-medium text-primary">
-          {photo.grupoCaptura === "estacion"
-            ? "Estación de control"
-            : photo.grupoCaptura === "sacrificio"
-              ? "Sacrificio (tope)"
-              : "Recorrido continuo"}
-        </p>
-
-        {photo.grupoCaptura === "estacion" && (
-          <p className="text-xs text-muted-foreground">
-            {estaciones.find(
-              estacion => estacion.id === photo.estacionId,
-            )?.nombre ?? "Estación sin identificar"}
-
-            {estaciones.find(
-              estacion => estacion.id === photo.estacionId,
-            ) && (
-              <>
-                {" — "}
-                {estaciones
-                  .find(estacion => estacion.id === photo.estacionId)!
-                  .progresiva.toFixed(2)}{" "}
-                m
-              </>
-            )}
-          </p>
-        )}
-      </div>
-    </div>
-  ))}
-</div>
-        )}
-      </section>
-
-      <section className="space-y-4 rounded-xl border border-border bg-card p-4 sm:p-6">
-        <h3 className="flex items-center gap-2 font-bold uppercase">
-          <Ruler className="size-5 text-primary" />
-          4. Referencia de escala
-        </h3>
-
-        <p className="text-sm text-muted-foreground">
-          Registrar una dimensión física conocida que aparezca
-          en las fotografías y pueda verificarse en campo.
-        </p>
-
-        <div className="grid gap-3 sm:grid-cols-[1fr_150px]">
-          <label className="space-y-1">
-            <span className="text-xs font-semibold">Longitud conocida</span>
-            <input
-              type="number"
-              min="0"
-              step="any"
-              value={scale}
-              onChange={e => setScale(e.target.value)}
-              placeholder="Ej. 100"
-              className="h-11 w-full rounded-lg border border-input bg-background px-3"
-            />
-          </label>
-
-          <label className="space-y-1">
-            <span className="text-xs font-semibold">Unidad</span>
-            <select
-              value={unit}
-              onChange={e => setUnit(e.target.value)}
-              className="h-11 w-full rounded-lg border border-input bg-background px-3"
-            >
-              <option value="mm">Milímetros</option>
-              <option value="cm">Centímetros</option>
-              <option value="m">Metros</option>
-            </select>
-          </label>
-        </div>
-
-        <label className="block space-y-1">
-          <span className="text-xs font-semibold">
-            Descripción de la referencia
-          </span>
-          <input
-            value={scaleDescription}
-            onChange={e => setScaleDescription(e.target.value)}
-            placeholder="Ej. Barra de escala de 1 metro"
-            className="h-11 w-full rounded-lg border border-input bg-background px-3"
-          />
+        <label className="space-y-1 text-sm">Nivel
+          <input value={nivel} onChange={e => setNivel(e.target.value)} placeholder="Opcional para prueba" className="h-11 w-full rounded-lg border bg-background px-3" />
         </label>
-
-        <p className="text-xs text-muted-foreground">
-          Este registro no calibra todavía ningún modelo 3D.
-        </p>
-      </section>
-
-      
-<section className="rounded-xl border border-border bg-secondary/50 p-4 space-y-4">
-  <div>
-    <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-      Validación del levantamiento
-    </h3>
-    <p className="mt-1 text-sm text-muted-foreground">
-      Comprueba que los datos mínimos estén registrados.
-    </p>
-  </div>
-
-<div className="grid gap-3 sm:grid-cols-2">
-  <div className="rounded-lg border border-border bg-background p-3">
-    <p className="text-xs text-muted-foreground">
-      Identificación
-    </p>
-    <p className="font-semibold">
-      {labor.trim() !== "" && nivel.trim() !== ""
-        ? "Completa"
-        : "Pendiente"}
-    </p>
-    <p className="text-xs text-muted-foreground">
-      Labor y nivel
-    </p>
-  </div>
-
-  <div className="rounded-lg border border-border bg-background p-3">
-    <p className="text-xs text-muted-foreground">
-      Longitud de labor
-    </p>
-    <p className="font-semibold">
-      {longitudMetros.trim() !== "" &&
-      Number.isFinite(Number(longitudMetros)) &&
-      Number(longitudMetros) > 0
-        ? `${Number(longitudMetros).toFixed(2)} m`
-        : "Pendiente"}
-    </p>
-  </div>
-
-  <div className="rounded-lg border border-border bg-background p-3">
-    <p className="text-xs text-muted-foreground">
-      Referencia de escala
-    </p>
-    <p className="font-semibold">
-      {scale.trim() !== "" &&
-      Number.isFinite(Number(scale)) &&
-      Number(scale) > 0 &&
-      scaleDescription.trim() !== ""
-        ? "Completa"
-        : "Pendiente"}
-    </p>
-    <p className="text-xs text-muted-foreground">
-      Dimensión conocida y descripción
-    </p>
-  </div>
-
-  <div className="rounded-lg border border-border bg-background p-3">
-    <p className="text-xs text-muted-foreground">
-      Total de fotografías
-    </p>
-    <p className="font-semibold">
-      {photos.length} / {MAX_PHOTOS}
-    </p>
-  </div>
-
-  <div className="rounded-lg border border-border bg-background p-3">
-    <p className="text-xs text-muted-foreground">
-      Recorrido continuo
-    </p>
-    <p className="font-semibold">
-      {photos.filter(photo => photo.grupoCaptura === "recorrido").length} fotografías
-    </p>
-  </div>
-
-  <div className="rounded-lg border border-border bg-background p-3">
-    <p className="text-xs text-muted-foreground">
-      Estaciones de control
-    </p>
-    <p className="font-semibold">
-      {photos.filter(photo => photo.grupoCaptura === "estacion").length} fotografías
-    </p>
-  </div>
-
-  <div className="rounded-lg border border-border bg-background p-3">
-    <p className="text-xs text-muted-foreground">
-      Sacrificio (tope)
-    </p>
-    <p className="font-semibold">
-      {photos.filter(photo => photo.grupoCaptura === "sacrificio").length} fotografías
-    </p>
-  </div>
-</div>
-
-  <div className="rounded-lg border border-border bg-background p-3">
-    <p className="text-sm font-bold">
-      Estado de los datos
-    </p>
-
-    <p className="mt-1 text-sm text-muted-foreground">
-      {labor.trim() !== "" &&
-      nivel.trim() !== "" &&
-      longitudMetros.trim() !== "" &&
-      Number.isFinite(Number(longitudMetros)) &&
-      Number(longitudMetros) > 0 &&
-      scale.trim() !== "" &&
-      Number.isFinite(Number(scale)) &&
-      Number(scale) > 0 &&
-      scaleDescription.trim() !== "" &&
-      photos.length > 0
-        ? "Datos mínimos registrados. El levantamiento todavía requiere validación técnica de las fotografías."
-        : "Faltan datos mínimos para completar el registro del levantamiento."}
-    </p>
-  </div>
-</section>
-
-    </div>
-  );
+      </div>
+      <label className="block space-y-1 text-sm">Momento del levantamiento
+        <select value={tipo} onChange={e => setTipo(e.target.value as "antes" | "despues")} className="h-11 w-full rounded-lg border bg-background px-3">
+          <option value="antes">Antes del shotcrete</option><option value="despues">Después del shotcrete</option>
+        </select>
+      </label>
+    </section>
+    <section className="space-y-3 rounded-xl border bg-card p-4">
+      <h3 className="font-bold uppercase">Cámara · Escaneo continuo</h3>
+      <video ref={vista} playsInline muted autoPlay className="aspect-video w-full rounded-lg bg-black object-cover" />
+      <div className="flex items-center justify-between text-sm">
+        <span>{grabando ? "● Grabación activa" : "Cámara detenida"}</span>
+        <span className="font-mono">{Math.floor(duracion/60).toString().padStart(2,"0")}:{(duracion%60).toString().padStart(2,"0")}</span>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <button type="button" disabled={grabando || preparando} onClick={() => void iniciar()} className="min-h-14 rounded-lg bg-primary p-2 font-bold text-primary-foreground disabled:opacity-50">INICIAR ESCANEO</button>
+        <button type="button" disabled={!grabando} onClick={detener} className="min-h-14 rounded-lg border p-2 font-bold disabled:opacity-50">DETENER</button>
+      </div>
+      <p role="status" className="text-sm">{mensaje}</p>
+      <p className="text-xs text-muted-foreground">Se registra el video completo, no solo 30 fotografías. Mantén abierta la aplicación durante la grabación. Los videos largos pueden superar el almacenamiento del navegador.</p>
+    </section>
+    <section className="space-y-3 rounded-xl border bg-card p-4">
+      <h3 className="font-bold uppercase">Resultado de captura</h3>
+      <p className="text-sm">{video ? `Video disponible: ${(video.size / 1048576).toFixed(1)} MB` : "Todavía no hay un video capturado."}</p>
+      <button type="button" disabled={!video || grabando} onClick={exportar} className="min-h-12 w-full rounded-lg border p-2 font-bold disabled:opacity-50">EXPORTAR VIDEO ORIGINAL</button>
+      <p className="text-xs text-muted-foreground">El modelo 3D todavía no se genera aquí. Para una reconstrucción fiable usaremos un motor multivista, como COLMAP, que procesará el video exportado en PC. La cubicación existente no se modifica.</p>
+    </section>
+  </div>;
 }
