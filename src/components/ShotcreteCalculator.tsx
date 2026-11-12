@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import jsPDF from "jspdf";
+import { PilotoLabor3D } from "./PilotoLabor3D";
 import { Filesystem, Directory } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
 import {
@@ -371,6 +372,11 @@ const valid = inputsComplete && errors.length === 0 && espesorValido;
 
 
   const shown = calculated && valid ? result : null;
+  const ancho3D = average(a);
+  const alto3D = average(h);
+  const largo3D = average(l);
+  const modeloDisponible = mode !== "resane" && ancho3D > 0 && alto3D > 0 && largo3D > 0 && errors.length === 0;
+
 
 const photosLimitReached = photos.length >= 10;
 const addPhotos = (files: FileList | null) => {
@@ -2244,6 +2250,8 @@ Fecha: ${date}`;
                 />
               </div>
             )}
+
+          {modeloDisponible && <PilotoLabor3D ancho={ancho3D} alto={alto3D} longitud={largo3D} />}
 
           {/* Verification table */}
 <div className="mt-6 overflow-x-auto rounded-lg border border-border">
