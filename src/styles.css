@@ -2,6 +2,7 @@
 @source "../src";
 @import "tw-animate-css";
 @import "@fontsource/barlow/400.css";
+@import "@fontsource/barlow/500.css";
 @import "@fontsource/barlow/600.css";
 @import "@fontsource/barlow/700.css";
 @import "@fontsource/barlow-condensed/600.css";
@@ -847,15 +848,15 @@
     letter-spacing: 0.08em;
   }
   .measurement-heading {
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
   }
   .measurement-heading > span {
-    flex-basis: auto;
+    flex-basis: 100%;
     font-size: 10px;
   }
   .measurement-heading .add-measurement {
-    width: 28px;
-    height: 28px;
+    width: 44px;
+    height: 44px;
   }
   .remove-measurement {
     width: 24px;
@@ -925,5 +926,127 @@
     gap: 16px;
     padding-block: 24px;
     font-size: 9px;
+  }
+}
+
+/* Reading comfort: slightly larger type and less condensed section headings. */
+html {
+  font-size: 17px;
+}
+.app-shell .font-display {
+  font-family: var(--font-sans);
+}
+.workspace-heading h1 {
+  font-family: var(--font-sans);
+  font-size: clamp(30px, 3.5vw, 46px);
+  font-weight: 600;
+  letter-spacing: -0.045em;
+}
+.workbench-title h2 {
+  font-family: var(--font-sans);
+  font-size: 24px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: -0.025em;
+}
+.workbench-title > div > p:last-child {
+  font-size: 13px;
+}
+.input-panel label,
+.input-panel > div > p:first-child {
+  font-size: 12px;
+  letter-spacing: 0.07em;
+}
+.input-panel input {
+  font-size: 17px;
+}
+.input-panel input::placeholder {
+  font-size: 14px;
+}
+.input-panel .measurement-heading > span {
+  font-size: 11px;
+}
+.input-panel .add-measurement {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.measurement-plus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: oklch(0.79 0.16 82 / 10%);
+  color: var(--primary);
+  font: 500 17px/1 var(--font-sans);
+}
+.add-measurement:hover .measurement-plus {
+  background: oklch(0.79 0.16 82 / 22%);
+}
+.input-panel .add-measurement:focus-visible {
+  border-radius: 10px;
+}
+.result-card > p:first-child {
+  font-size: 12px;
+}
+.result-card > p:last-child {
+  font-size: 38px;
+  font-weight: 600;
+}
+.results-panel .border-t-2 > p {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+.results-panel > div:first-child > p {
+  font-weight: 600;
+  font-size: 22px;
+  text-transform: none;
+}
+.verification-details summary {
+  font-size: 14px;
+}
+.verification-details summary > span {
+  font-size: 12px;
+}
+.export-actions > button {
+  font-size: 14px;
+}
+.module-tab > span:not(.tab-number) {
+  font-size: 15px;
+}
+.module-tab small {
+  font-size: 11px;
+}
+@media (max-width: 767px) {
+  .workspace-heading h1 {
+    font-size: 30px;
+    line-height: 1.15;
+  }
+  .workbench-title h2 {
+    font-size: 21px;
+  }
+  .module-tab > span:not(.tab-number) {
+    font-size: 13px;
+  }
+  .module-tab small {
+    font-size: 10px;
+  }
+  .result-card > p:last-child {
+    font-size: 32px;
+  }
+  .calculate-button {
+    font-size: 15px;
+  }
+  .calculate-button .action-icon {
+    width: 30px;
+    height: 30px;
   }
 }

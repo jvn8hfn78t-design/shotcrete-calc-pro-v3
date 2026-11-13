@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import jsPDF from "jspdf";
+import { Capacitor } from "@capacitor/core";
+import { deliverPdf, pdfFileName } from "@/lib/pdf-delivery";
 import { PilotoLabor3D } from "./PilotoLabor3D";
 import { Filesystem, Directory } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
@@ -13,7 +15,6 @@ import {
   X,
   ArrowDownToLine,
   ArrowUpRight,
-  Box,
   Ruler,
   Share2,
 } from "lucide-react";
@@ -273,6 +274,13 @@ const [copied, setCopied] = useState(false);
 const [calculated, setCalculated] = useState(false);
 const [result, setResult] = useState<CalculationResult | null>(null);
 const [photos, setPhotos] = useState<string[]>([]);
+const [pdfAction, setPdfAction] = useState<"download" | "share" | null>(null);
+const pdfBusy = useRef(false);
+const [pdfPreparationError, setPdfPreparationError] = useState(false);
+const [pdfRetry, setPdfRetry] = useState(0);
+const [preparedReport, setPreparedReport] = useState<{
+  revision: object; pdf: jsPDF; file: File; fileName: string; date: string;
+} | null>(null);
 const [rendimientos, setRendimientos] = useState<Record<string, number>>(
   DEFAULT_RENDIMIENTOS_SHOTCRETE
 );
@@ -378,6 +386,9 @@ const valid = inputsComplete && errors.length === 0 && espesorValido;
 
 
   const shown = calculated && valid ? result : null;
+  // A new identity invalidates any previously prepared attachment synchronously.
+  const reportRevision = useMemo(() => ({}), [shown, mode, h, a, l, espesor, labor, nivel, operador, observaciones, photos]);
+  const pdfReady = !!preparedReport && preparedReport.revision === reportRevision;
   const ancho3D = average(a);
   const alto3D = average(h);
   const largo3D = average(l);
@@ -601,13 +612,7 @@ const buildPDF = () => {
 
   const date = new Date().toLocaleDateString("es-PE");
 
-  const safeLabor =
-    labor.trim().replace(/[^a-zA-Z0-9_-]/g, "_") || "Sin_Labor";
-
-  const fileName = `Reporte_Shotcrete_${safeLabor}_${date.replace(
-    /\//g,
-    "-"
-  )}.pdf`;
+  const fileName = pdfFileName(labor, nivel, date);
 
   const fmtPDF = (value: number, decimals = 1) =>
     Number(value || 0).toFixed(decimals);
@@ -1473,145 +1478,69 @@ photos.forEach((photo, index) => {
   return { pdf, fileName, date };
 };
 
-const generatePDF = async () => {
-  const result = buildPDF();
+// Prepare attachments after changes, before the user taps Share. This also
+// avoids repeating PDF/image rendering when only the delivery action changes.
+useEffect(() => {
+  setPreparedReport(null);
+  setPdfPreparationError(false);
+  if (!shown) return;
+  const timer = window.setTimeout(() => {
+    try {
+      const report = buildPDF();
+      if (!report) return;
+      const file = new File([report.pdf.output("blob")], report.fileName, { type: "application/pdf" });
+      setPreparedReport({ ...report, revision: reportRevision, file });
+    } catch {
+      setPdfPreparationError(true);
+    }
+  }, 120);
+  return () => window.clearTimeout(timer);
+  // reportRevision covers every input used by buildPDF; action changes must not rebuild it.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [reportRevision, pdfRetry]);
 
-  if (!result) return;
-
+const sendPDF = async (action: "download" | "share") => {
+  if (!pdfReady || !preparedReport || pdfBusy.current) return;
+  pdfBusy.current = true;
+  setPdfAction(action);
+  const { pdf, file, fileName, date } = preparedReport;
+  const title = "Reporte de shotcrete";
+  const text = `Nivel: ${nivel || "—"} · Labor: ${labor || "—"} · ${date}`;
+  const getBase64 = () => {
+    const data = pdf.output("datauristring").split(",")[1];
+    if (!data) throw new Error("No se pudo preparar el archivo PDF");
+    return data;
+  };
   try {
-    const isNative =
-      typeof window !== "undefined" &&
-      (window as any).Capacitor?.isNativePlatform?.();
-
-    if (isNative) {
-      const base64 = result.pdf
-        .output("datauristring")
-        .split(",")[1];
-
-      await Filesystem.writeFile({
-        path: `PDR Shotcrete/${result.fileName}`,
-        data: base64,
-        directory: Directory.Documents,
-        recursive: true,
-      });
-
-      toast.success(
-        "PDF guardado correctamente en Documentos"
-      );
-
-      return;
-    }
-
-    // Navegador / PWA / Vercel
-    result.pdf.save(result.fileName);
-
-    toast.success("PDF descargado correctamente");
-  } catch (error) {
-    console.error("Error al generar PDF:", error);
-
-    toast.error("No se pudo generar el PDF");
-  }
-};
-
-const sharePDF = async () => {
-  const result = buildPDF();
-
-  if (!result) return;
-
-  const { pdf, fileName, date } = result;
-
-  try {
-    const isNative =
-      typeof window !== "undefined" &&
-      (window as any).Capacitor?.isNativePlatform?.();
-
-    const shareText = `Cálculo volumen de Shotcrete
-
-Nivel: ${nivel || "—"}
-Labor: ${labor || "—"}
-Fecha: ${date}`;
-
-    // ─────────────────────────────────────────────
-    // APK / ANDROID
-    // ─────────────────────────────────────────────
-
-    if (isNative) {
-      const base64 = pdf
-        .output("datauristring")
-        .split(",")[1];
-
-      await Filesystem.writeFile({
-        path: fileName,
-        data: base64,
-        directory: Directory.Cache,
-      });
-
-      const fileUri = await Filesystem.getUri({
-        path: fileName,
-        directory: Directory.Cache,
-      });
-
-      const canShare = await Share.canShare();
-
-      if (!canShare.value) {
-        toast.error(
-          "Este dispositivo no permite compartir archivos"
-        );
-        return;
-      }
-
-      await Share.share({
-        title: "Cálculo volumen de Shotcrete",
-        text: shareText,
-        files: [fileUri.uri],
-        dialogTitle: "Compartir PDF",
-      });
-
-      return;
-    }
-
-    // ─────────────────────────────────────────────
-    // VERCEL / PWA / NAVEGADOR
-    // ─────────────────────────────────────────────
-
-    const blob = pdf.output("blob");
-
-    const file = new File(
-      [blob],
-      fileName,
-      {
-        type: "application/pdf",
-      }
-    );
-
-    // Compartir archivo desde el navegador
-    if (
-      typeof navigator !== "undefined" &&
-      navigator.share &&
-      navigator.canShare?.({ files: [file] })
-    ) {
-      await navigator.share({
-        title: "Cálculo volumen de Shotcrete",
-        text: shareText,
-        files: [file],
-      });
-
-      return;
-    }
-
-    // Si el navegador no permite compartir archivos,
-    // descargamos el PDF como alternativa.
-    pdf.save(fileName);
-
-    toast.success(
-      "El navegador no permite compartir archivos. PDF descargado."
-    );
-  } catch (error) {
-    console.error("Error al compartir PDF:", error);
-
-    toast.error(
-      "No se pudo compartir el PDF"
-    );
+    const outcome = await deliverPdf(action, { title, text, files: [file] }, {
+      native: Capacitor.isNativePlatform(),
+      web: {
+        ...(navigator.share ? { share: (data) => navigator.share(data) } : {}),
+        ...(navigator.canShare ? { canShare: (data) => navigator.canShare(data) } : {}),
+      },
+      download: () => { pdf.save(fileName); },
+      saveDocuments: async () => {
+        await Filesystem.writeFile({ path: `PDR Shotcrete/${fileName}`, data: getBase64(), directory: Directory.Documents, recursive: true });
+      },
+      canShareNative: async () => (await Share.canShare()).value,
+      writeCache: async () => {
+        await Filesystem.writeFile({ path: fileName, data: getBase64(), directory: Directory.Cache });
+        return (await Filesystem.getUri({ path: fileName, directory: Directory.Cache })).uri;
+      },
+      shareNative: async (uri) => {
+        await Share.share({ title, text, files: [uri], dialogTitle: "Enviar reporte PDF" });
+      },
+    });
+    if (outcome === "shared") toast.success("Reporte compartido");
+    if (outcome === "downloaded") toast.success("PDF descargado");
+    if (outcome === "saved") toast.success("PDF guardado en Documentos / PDR Shotcrete");
+    if (outcome === "downloaded-fallback") toast.info("PDF descargado. Puedes adjuntarlo desde Descargas en WhatsApp o correo.");
+    if (outcome === "saved-fallback") toast.info("PDF guardado en Documentos / PDR Shotcrete. Puedes adjuntarlo desde allí.");
+  } catch {
+    toast.error("No se pudo guardar el PDF. Revisa el espacio y los permisos del dispositivo e inténtalo de nuevo.");
+  } finally {
+    pdfBusy.current = false;
+    setPdfAction(null);
   }
 };
 
@@ -1948,11 +1877,16 @@ Fecha: ${date}`;
                     <button
                       type="button"
                       onClick={() => addMeasurement(item.setter)}
-                      className="add-measurement flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-sm font-bold text-primary hover:bg-primary/20"
+                      className="add-measurement flex size-11 shrink-0 items-center justify-center rounded-lg text-primary"
                       aria-label={`Agregar medición de ${item.label.toLowerCase()}`}
                       title="Agregar medición"
                     >
-                      +
+                      <span
+                        className="measurement-plus flex size-6 items-center justify-center rounded-full bg-primary/10 text-base leading-none"
+                        aria-hidden="true"
+                      >
+                        +
+                      </span>
                     </button>
                   </div>
                   <div className="space-y-2">
@@ -2083,89 +2017,8 @@ Fecha: ${date}`;
         <div className="output-panel">
           <div className="panel-caption">
             <span>ESPACIO DE ANÁLISIS</span>
-            <span className="flex items-center gap-1.5">
-              <Box className="size-3.5" aria-hidden="true" /> VISUALIZACIÓN +
-              RESULTADOS
-            </span>
+            <span>RESULTADOS DEL CÁLCULO</span>
           </div>
-          {modeloDisponible ? (
-            <PilotoLabor3D ancho={ancho3D} alto={alto3D} longitud={largo3D} />
-          ) : (
-            <section
-              className="model-placeholder"
-              aria-label="Vista previa pendiente de medidas"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="eyebrow">GEOMETRÍA DE LA LABOR</p>
-                  <h3 className="mt-2 font-display text-2xl font-semibold uppercase">
-                    Modelo 3D referencial
-                  </h3>
-                </div>
-                <span className="reference-tag">POR MEDIDAS</span>
-              </div>
-              <div className="placeholder-stage" aria-hidden="true">
-                <svg
-                  viewBox="0 0 480 270"
-                  fill="none"
-                  className="tunnel-outline"
-                >
-                  <g stroke="currentColor" strokeWidth="1.2">
-                    <path d="M100 228V132a100 100 0 0 1 200 0v96M180 181V85a100 100 0 0 1 200 0v96" />
-                    <path
-                      d="m100 228 80-47m120 47 80-47M100 132l80-47m120 47 80-47M129 61l80-47m142 0-80 47m-71-29 80-47"
-                      strokeDasharray="4 6"
-                    />
-                    <path
-                      d="M80 244h240m-240-5v10m240-10v10M68 228V132m-5 0h10m-10 96h10"
-                      opacity=".45"
-                    />
-                  </g>
-                  <path
-                    d="M100 228V132a100 100 0 0 1 200 0v96"
-                    stroke="var(--primary)"
-                    strokeWidth="2"
-                    opacity=".8"
-                  />
-                  <circle
-                    cx="200"
-                    cy="132"
-                    r="22"
-                    fill="var(--background)"
-                    stroke="var(--border)"
-                  />
-                  <path
-                    d="M192 132h16m-8-8v16"
-                    stroke="var(--primary)"
-                    strokeWidth="1.5"
-                  />
-                </svg>
-                <span className="stage-coordinate">H / A / L</span>
-              </div>
-              <div className="placeholder-copy">
-                <Ruler
-                  className="size-5 shrink-0 text-primary"
-                  aria-hidden="true"
-                />
-                <div>
-                  <p className="font-semibold">
-                    {mode === "resane"
-                      ? "Modo resane · Cálculo por superficie"
-                      : "Tu labor, a partir de tus medidas"}
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {mode === "resane"
-                      ? "Ingresa altura y avance para obtener el área y el volumen de resane."
-                      : "Completa altura, ancho y avance para explorar el modelo tridimensional."}
-                  </p>
-                </div>
-              </div>
-              <p className="model-disclaimer">
-                Esquema ilustrativo. No corresponde a un levantamiento
-                escaneado.
-              </p>
-            </section>
-          )}
           {!shown && (
             <div className="results-placeholder">
               <span className="empty-result-icon">
@@ -2543,20 +2396,45 @@ Fecha: ${date}`;
                 )}
               </div>
 
+              <div className="mt-6" role="status" aria-live="polite">
+                {pdfPreparationError ? (
+                  <p className="text-sm text-muted-foreground">
+                    No se pudo preparar el archivo.{" "}
+                    <button
+                      type="button"
+                      onClick={() => setPdfRetry((value) => value + 1)}
+                      className="text-primary underline underline-offset-4"
+                    >
+                      Reintentar
+                    </button>
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    {pdfReady
+                      ? "PDF listo para enviar por WhatsApp, correo u otra aplicación."
+                      : "Preparando tu PDF…"}
+                  </p>
+                )}
+              </div>
               <div className="export-actions">
                 <button
-                  onClick={generatePDF}
-                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-primary/40 bg-primary/10 px-3 font-sans text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
+                  onClick={() => void sendPDF("download")}
+                  disabled={!pdfReady || pdfAction !== null}
+                  aria-busy={pdfAction === "download"}
+                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-primary/40 bg-primary/10 px-3 font-sans text-xs font-semibold text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
                 >
                   <ArrowDownToLine className="size-4" aria-hidden="true" />{" "}
-                  Descargar PDF
+                  {pdfAction === "download" ? "Guardando…" : "Descargar PDF"}
                 </button>
 
                 <button
-                  onClick={sharePDF}
-                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 font-sans text-xs font-semibold text-primary-foreground transition-colors hover:brightness-110"
+                  onClick={() => void sendPDF("share")}
+                  disabled={!pdfReady || pdfAction !== null}
+                  aria-busy={pdfAction === "share"}
+                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 font-sans text-xs font-semibold text-primary-foreground transition-colors hover:brightness-110 disabled:opacity-50"
                 >
-                  <Share2 className="size-4" aria-hidden="true" /> Compartir PDF
+                  <Share2 className="size-4" aria-hidden="true" />{" "}
+                  {pdfAction === "share" ? "Abriendo envío…" : "Enviar PDF"}
                 </button>
 
                 <button
@@ -2571,6 +2449,11 @@ Fecha: ${date}`;
                   {copied ? "¡Copiado!" : "Copiar reporte"}
                 </button>
               </div>
+            </div>
+          )}
+          {shown && modeloDisponible && (
+            <div className="reference-model mt-5">
+              <PilotoLabor3D ancho={ancho3D} alto={alto3D} longitud={largo3D} />
             </div>
           )}
         </div>

@@ -25,6 +25,7 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
+  const [surveyOpened, setSurveyOpened] = useState(false);
   const [moduloActivo, setModuloActivo] = useState<"calculadora" | "fotogrametria">("calculadora");
 
   return (
@@ -93,12 +94,15 @@ function Index() {
             <button
               type="button"
               aria-pressed={moduloActivo === "fotogrametria"}
-              onClick={() => setModuloActivo("fotogrametria")}
+              onClick={() => {
+                setSurveyOpened(true);
+                setModuloActivo("fotogrametria");
+              }}
               className={`module-tab ${moduloActivo === "fotogrametria" ? "is-active" : ""}`}
             >
               <ScanLine aria-hidden="true" />
               <span>
-                Fotogrametría<small>Captura continua por video</small>
+                Fotogrametría<small>Fotos a puntos 3D</small>
               </span>
               <span className="tab-number">02</span>
             </button>
@@ -108,13 +112,17 @@ function Index() {
           </span>
         </nav>
 
-        <section
-          aria-label={
-            moduloActivo === "calculadora" ? "Calculadora de shotcrete" : "Captura fotogramétrica"
-          }
-        >
-          {moduloActivo === "calculadora" ? <ShotcreteCalculator /> : <Fotogrametria />}
+        <section hidden={moduloActivo !== "calculadora"} aria-label="Calculadora de shotcrete">
+          <ShotcreteCalculator />
         </section>
+        {surveyOpened && (
+          <section
+            hidden={moduloActivo !== "fotogrametria"}
+            aria-label="Reconstrucción fotogramétrica"
+          >
+            <Fotogrametria />
+          </section>
+        )}
       </main>
 
       <footer className="app-footer">
