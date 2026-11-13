@@ -848,10 +848,11 @@
     letter-spacing: 0.08em;
   }
   .measurement-heading {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
   }
   .measurement-heading > span {
-    flex-basis: 100%;
+    flex-basis: auto;
+    min-width: 0;
     font-size: 10px;
   }
   .measurement-heading .add-measurement {
