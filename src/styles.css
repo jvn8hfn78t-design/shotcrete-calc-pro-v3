@@ -856,8 +856,9 @@
     font-size: 10px;
   }
   .measurement-heading .add-measurement {
-    width: 44px;
-    height: 44px;
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
   }
   .remove-measurement {
     width: 24px;
@@ -971,9 +972,9 @@ html {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
   padding: 0;
   border: 0;
   background: transparent;
