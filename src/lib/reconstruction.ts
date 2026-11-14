@@ -47,6 +47,7 @@ async function decode(file: File, signal?: AbortSignal): Promise<ReconstructionI
 export async function reconstructPhotos(
   files: File[],
   options: {
+    dense?: boolean;
     signal?: AbortSignal;
     onProgress?: (progress: ReconstructionProgress) => void;
   } = {},
@@ -87,7 +88,7 @@ export async function reconstructPhotos(
             "El procesamiento tardó demasiado. Prueba con menos fotos y cierra otras aplicaciones.",
           ),
         ),
-      240_000,
+      600_000,
     );
     options.signal?.addEventListener("abort", abort, { once: true });
     worker.onerror = () =>
@@ -108,7 +109,7 @@ export async function reconstructPhotos(
       }
     };
     worker.postMessage(
-      { images },
+      { images, dense: options.dense },
       images.map((image) => image.rgba.buffer),
     );
   });

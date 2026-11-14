@@ -14,7 +14,16 @@ export type ReconstructionResult = {
   reprojectionError: number;
   elapsedMs: number;
   warnings: string[];
-  engine: "OpenCV.js + SfM";
+  engine: "OpenCV.js + SfM" | "SfM + estéreo denso local";
+  cameras?: import("./dense-stereo").DenseCamera[];
+  dense?: {
+    pairs: number;
+    candidates: number;
+    accepted: number;
+    voxelSize: number;
+    perPair: { images: number[]; accepted: number; candidates: number }[];
+    pointLimitReached: boolean;
+  };
   scale: "relative";
 };
 export type ReconstructionImage = {
