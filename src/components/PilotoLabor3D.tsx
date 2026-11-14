@@ -5,23 +5,43 @@ type Zone = "left" | "right" | "crown" | "face";
 type Vertex = [number, number, number];
 type Triangle = { a: Vertex; b: Vertex; c: Vertex; zone: Zone; shade: number };
 const zones: { id: Zone; name: string; color: string }[] = [
-  { id: "left", name: "Hastial izquierdo", color: "#879da0" },
-  { id: "crown", name: "Corona", color: "#d1ae75" },
-  { id: "right", name: "Hastial derecho", color: "#657d86" },
-  { id: "face", name: "Tope", color: "#b48b65" },
+  { id: "left", name: "Hastial izquierdo", color: "#85918c" },
+  { id: "crown", name: "Corona", color: "#b4a18b" },
+  { id: "right", name: "Hastial derecho", color: "#78858e" },
+  { id: "face", name: "Tope", color: "#8d7767" },
 ];
 const noise = (a: number, b: number, c: number) => {
   const n = Math.sin(a * 127.1 + b * 311.7 + c * 74.7) * 43758.5453;
   return n - Math.floor(n);
 };
 
+// Continuous, deterministic noise keeps adjacent rock facets connected when dimensions change.
+function rockNoise(x: number, y: number, z: number): number {
+  const ix = Math.floor(x),
+    iy = Math.floor(y),
+    iz = Math.floor(z);
+  const smooth = (t: number) => t * t * (3 - 2 * t);
+  const u = smooth(x - ix),
+    v = smooth(y - iy),
+    w = smooth(z - iz);
+  const mix = (a: number, b: number, t: number) => a + (b - a) * t;
+  const plane = (k: number) =>
+    mix(
+      mix(noise(ix, iy, k), noise(ix + 1, iy, k), u),
+      mix(noise(ix, iy + 1, k), noise(ix + 1, iy + 1, k), u),
+      v,
+    );
+  return mix(plane(iz), plane(iz + 1), w) * 2 - 1;
+}
+
 function createMesh(width: number, height: number, length: number): Triangle[] {
-  const r = width / 2;
-  const wall = Math.max(0, height - r);
-  const segments = 40;
-  const rows = 25;
-  const wallParts = 10;
-  const crownParts = 20;
+  const r = width / 2,
+    wall = Math.max(0, height - r);
+  const segments = 80,
+    rows = 64,
+    wallParts = 20,
+    crownParts = 40;
+  const size = Math.min(width, height);
   const profile = (i: number): [number, number, Zone] => {
     if (i <= wallParts) return [-r, (wall * i) / wallParts, "left"];
     if (i <= wallParts + crownParts) {
@@ -30,49 +50,77 @@ function createMesh(width: number, height: number, length: number): Triangle[] {
     }
     return [r, wall * (1 - (i - wallParts - crownParts) / wallParts), "right"];
   };
+  const relief = (x: number, y: number, z: number) =>
+    size *
+    (0.029 * rockNoise((x / size) * 4, (y / size) * 4, (z / size) * 4) +
+      0.016 * rockNoise((x / size) * 11 + 7, (y / size) * 11, (z / size) * 11) +
+      0.006 * rockNoise((x / size) * 29, (y / size) * 29 + 13, (z / size) * 29));
   const shell: Vertex[][] = [];
   for (let k = 0; k <= rows; k++) {
     const line: Vertex[] = [];
     for (let j = 0; j <= segments; j++) {
-      const [x, y] = profile(j);
-      const displacement = (noise(j, k, 1) - 0.5) * Math.min(width, height) * 0.038;
-      const sign = x < 0 ? -1 : 1;
-      line.push([x + displacement * sign, y + displacement * 0.4, (length * k) / rows]);
+      const [x, y] = profile(j),
+        z = (length * k) / rows;
+      // Keep the nominal entrance and floor datum readable; relief is illustrative only.
+      const taper = Math.min(1, k / 3) * Math.min(1, y / (size * 0.08));
+      const d = relief(x, y, z) * taper;
+      const nx = y <= wall ? Math.sign(x) : x / r;
+      const ny = y <= wall ? 0 : (y - wall) / r;
+      line.push([x + nx * d, y + ny * d, z]);
     }
     shell.push(line);
   }
   const tris: Triangle[] = [];
-  const push = (a: Vertex, b: Vertex, c: Vertex, zone: Zone, shade: number) =>
-    tris.push({ a, b, c, zone, shade });
-  for (let k = 0; k < rows; k++) {
+  const push = (a: Vertex, b: Vertex, c: Vertex, zone: Zone) =>
+    tris.push({ a, b, c, zone, shade: noise(a[0], a[1], a[2]) });
+  for (let k = 0; k < rows; k++)
     for (let j = 0; j < segments; j++) {
-      const zone = profile(j)[2];
+      const zone: Zone = j < wallParts ? "left" : j < wallParts + crownParts ? "crown" : "right";
       const a = shell[k]![j]!,
         b = shell[k + 1]![j]!,
         c = shell[k + 1]![j + 1]!,
         d = shell[k]![j + 1]!;
-      push(a, b, c, zone, noise(j, k, 4));
-      push(a, c, d, zone, noise(j, k, 5));
+      // Alternating diagonals avoid a visible directional triangulation pattern.
+      if ((j + k) % 2) {
+        push(a, b, d, zone);
+        push(b, c, d, zone);
+      } else {
+        push(a, b, c, zone);
+        push(a, c, d, zone);
+      }
     }
+  // Concentric rings give the face the same detail as the walls, without adding a floor.
+  // Reuse the shell boundary so the face has no cracks at the crown or sidewalls.
+  const perimeter = [...shell[rows]!];
+  for (let j = 1; j < 24; j++) perimeter.push([r - (width * j) / 24, 0, length]);
+  const rings = 18,
+    cy = height * 0.49;
+  const facePoint = (x: number, y: number, t: number): Vertex => [
+    x,
+    y,
+    length +
+      relief(x + size * 3, y, length) *
+        1.45 *
+        Math.min(1, (1 - t) * 6) *
+        Math.min(1, y / (size * 0.08)),
+  ];
+  const center = facePoint(0, cy, 0);
+  let previous: Vertex[] | null = null;
+  for (let ring = 1; ring <= rings; ring++) {
+    const t = ring / rings;
+    const current =
+      ring === rings
+        ? perimeter
+        : perimeter.map(([x, y]) => facePoint(x * t, cy + (y - cy) * t, t));
+    for (let j = 0; j < perimeter.length; j++) {
+      const next = (j + 1) % perimeter.length;
+      if (previous) {
+        push(previous[j]!, current[j]!, current[next]!, "face");
+        push(previous[j]!, current[next]!, previous[next]!, "face");
+      } else push(center, current[j]!, current[next]!, "face");
+    }
+    previous = current;
   }
-  // Tope de herradura cerrado, con triangulación regular y relieve leve.
-  // El borde inferior se cierra únicamente en el tope; no existe malla de piso.
-  const center: Vertex = [0, height * 0.49, length];
-  const middle: Vertex[] = [];
-  for (let j = 0; j <= segments; j++) {
-    const [x, y] = profile(j);
-    middle.push([
-      x * 0.5,
-      height * 0.49 + (y - height * 0.49) * 0.5,
-      length + (noise(j, 9, 2) - 0.5) * 0.015,
-    ]);
-  }
-  for (let j = 0; j < segments; j++) {
-    push(shell[rows]![j]!, shell[rows]![j + 1]!, middle[j + 1]!, "face", noise(j, 7, 1));
-    push(shell[rows]![j]!, middle[j + 1]!, middle[j]!, "face", noise(j, 7, 2));
-    push(middle[j]!, middle[j + 1]!, center, "face", noise(j, 7, 3));
-  }
-  push([-r, 0, length], [r, 0, length], center, "face", 0.5);
   return tris;
 }
 
@@ -85,16 +133,17 @@ type Scene = {
 const DEFAULT_CAMERA: Camera = { yaw: -22, pitch: 14, zoom: 1 };
 const zoneIndex: Record<Zone, number> = { left: 0, crown: 1, right: 2, face: 3 };
 const surfaceColors: Record<Zone, Vertex> = {
-  left: [0.44, 0.56, 0.59],
-  crown: [0.61, 0.56, 0.45],
-  right: [0.37, 0.49, 0.55],
-  face: [0.54, 0.45, 0.36],
+  left: [0.49, 0.54, 0.51],
+  crown: [0.65, 0.57, 0.46],
+  right: [0.43, 0.49, 0.54],
+  face: [0.51, 0.42, 0.34],
 };
 
 /** One GPU program per mounted viewer. Dragging only updates uniforms. */
 function createScene(canvas: HTMLCanvasElement): Scene | null {
   const gl = canvas.getContext("webgl", { alpha: false, antialias: true });
   if (!gl) return null;
+  const derivatives = !!gl.getExtension("OES_standard_derivatives");
   const shader = (type: number, source: string) => {
     const result = gl.createShader(type);
     if (!result) throw new Error("Shader unavailable");
@@ -116,12 +165,16 @@ function createScene(canvas: HTMLCanvasElement): Scene | null {
     uniform mat3 uRotation;
     uniform vec3 uCenter;
     uniform vec3 uProjection;
+    varying vec3 vPosition;
+    varying vec3 vViewPosition;
     varying vec3 vNormal;
     varying vec3 vColor;
     varying float vZone;
     void main() {
       vec3 p = uRotation * (aPosition - uCenter);
       gl_Position = vec4(p * uProjection, 1.0);
+      vPosition = aPosition;
+      vViewPosition = p;
       vNormal = uRotation * aNormal;
       vColor = aColor;
       vZone = aZone;
@@ -132,21 +185,80 @@ function createScene(canvas: HTMLCanvasElement): Scene | null {
     fs = shader(
       gl.FRAGMENT_SHADER,
       `
+      ${derivatives ? "#extension GL_OES_standard_derivatives : enable" : ""}
+      #ifdef GL_FRAGMENT_PRECISION_HIGH
+      precision highp float;
+      #else
       precision mediump float;
+      #endif
+      varying vec3 vPosition;
+      varying vec3 vViewPosition;
       varying vec3 vNormal;
       varying vec3 vColor;
       varying float vZone;
+      uniform float uRockScale;
+      uniform float uBack;
+      uniform float uCrownStart;
       uniform float uSelected;
       uniform float uUnlit;
+      float hash(vec3 p) {
+        p = fract(p * .1031);
+        p += dot(p, p.yzx + 33.33);
+        return fract((p.x + p.y) * p.z);
+      }
+      float stone(vec3 p) {
+        vec3 i = floor(p), f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(mix(hash(i), hash(i+vec3(1,0,0)), f.x),
+                       mix(hash(i+vec3(0,1,0)), hash(i+vec3(1,1,0)), f.x), f.y),
+                   mix(mix(hash(i+vec3(0,0,1)), hash(i+vec3(1,0,1)), f.x),
+                       mix(hash(i+vec3(0,1,1)), hash(i+vec3(1,1,1)), f.x), f.y), f.z);
+      }
       void main() {
-        vec3 n = normalize(vNormal + vec3(0.00001));
-        float key = abs(dot(n, normalize(vec3(-0.4, 0.7, -0.9))));
-        float fill = abs(dot(n, normalize(vec3(0.8, 0.1, -0.3))));
-        float lighting = mix(0.54 + key * 0.30 + fill * 0.10, 1.0, uUnlit);
-        float active = 1.0 - step(0.25, abs(vZone - uSelected));
-        float hasSelection = step(-0.5, uSelected) * (1.0 - uUnlit);
-        vec3 color = vColor * lighting;
-        color = mix(color, mix(color * 0.30, min(color * 1.25 + vec3(0.08, 0.06, 0.02), 1.0), active), hasSelection);
+        if (uUnlit > .5) { gl_FragColor = vec4(vColor, 1.0); return; }
+        vec3 p = vPosition * uRockScale;
+        float broad = stone(p * 5.0);
+        float grain = stone(p * 35.0 + broad * 1.6);
+        float fine = stone(p * 115.0);
+        // Intersecting mineral seams follow the rock in object space, never the screen.
+        float strata = abs(sin(dot(p, vec3(11.0, 19.0, 6.0)) + broad * 5.0 + grain * .4));
+        float fracture = 1.0 - smoothstep(.025, .10, strata);
+        float vein = 1.0 - smoothstep(.02, .075, abs(broad - .53));
+        float pores = 1.0 - smoothstep(.20, .36, fine);
+        vec3 tint = vColor;
+        if (vZone < 2.5) {
+          vec3 wallTint = mix(vec3(${surfaceColors.left.join(",")}), vec3(${surfaceColors.right.join(",")}), smoothstep(-.08, .08, p.x));
+          float crownMix = smoothstep(uCrownStart - .035, uCrownStart + .075, p.y);
+          tint = mix(wallTint, vec3(${surfaceColors.crown.join(",")}), crownMix);
+        }
+        vec3 albedo = tint * (.76 + broad * .42 + grain * .22);
+        albedo = mix(albedo, vec3(.62, .60, .53), vein * .25);
+        albedo *= 1.0 - fracture * .32 - pores * .17;
+        vec3 n = normalize(vNormal + vec3(.00001));
+        if (n.z > 0.0) n = -n;
+        ${
+          derivatives
+            ? `
+        float bump = (grain * .65 + fine * .22 - fracture * .2) * .003 / uRockScale;
+        vec3 dx = dFdx(vViewPosition), dy = dFdy(vViewPosition);
+        vec3 r1 = cross(dy, n), r2 = cross(n, dx);
+        float det = dot(dx, r1);
+        if (abs(det) > .00000001)
+          n = normalize(abs(det) * n - sign(det) * (dFdx(bump) * r1 + dFdy(bump) * r2));
+        `
+            : ""
+        }
+        vec3 keyDirection = normalize(vec3(-.55, .65, -.8));
+        float key = max(0.0, dot(n, keyDirection));
+        float fill = max(0.0, dot(n, normalize(vec3(.8, .1, -.5))));
+        float depth = smoothstep(0.0, .65, (uBack - vPosition.z) * uRockScale);
+        vec3 lighting = vec3(.26 + depth * .07) + vec3(1.0, .92, .80) * key * .66
+                     + vec3(.72, .84, 1.0) * fill * .20;
+        float sheen = pow(max(0.0, dot(n, normalize(keyDirection + vec3(0,0,-1)))), 18.0) * .035;
+        vec3 color = albedo * lighting + sheen;
+        float active = 1.0 - step(.25, abs(vZone - uSelected));
+        float hasSelection = step(-.5, uSelected);
+        color = mix(color, mix(color * .30, min(color * 1.18 + vec3(.06, .045, .015), 1.0), active), hasSelection);
         gl_FragColor = vec4(color, 1.0);
       }`,
     );
@@ -191,6 +303,9 @@ function createScene(canvas: HTMLCanvasElement): Scene | null {
     projection: gl.getUniformLocation(program, "uProjection"),
     selected: gl.getUniformLocation(program, "uSelected"),
     unlit: gl.getUniformLocation(program, "uUnlit"),
+    rockScale: gl.getUniformLocation(program, "uRockScale"),
+    back: gl.getUniformLocation(program, "uBack"),
+    crownStart: gl.getUniformLocation(program, "uCrownStart"),
   };
   let dimensions: Vertex = [4, 4.2, 3.8];
   const counts: [number, number, number] = [0, 0, 0];
@@ -221,33 +336,35 @@ function createScene(canvas: HTMLCanvasElement): Scene | null {
       const surface: number[] = [],
         contours: number[] = [],
         grid: number[] = [];
-      // Blend adjacent face normals for a quiet, readable stone surface.
-      // Vertex positions and the original reference geometry remain untouched.
-      const vertexNormals = new Map<Vertex, Vertex>();
+      // Preserve some facet shading and keep the face/wall seam crisp.
+      const vertexNormals = new Map<Zone, Map<Vertex, Vertex>>(
+        zones.map(({ id }) => [id, new Map()]),
+      );
       const faceNormals = mesh.map(({ a, b, c, zone }) => {
         const u: Vertex = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
         const v: Vertex = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
-        const normal: Vertex =
-          zone === "face"
-            ? [0, 0, -1]
-            : [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
-        if (zone !== "face")
-          for (const vertex of [a, b, c]) {
-            const sum = vertexNormals.get(vertex) ?? [0, 0, 0];
-            vertexNormals.set(vertex, [sum[0] + normal[0], sum[1] + normal[1], sum[2] + normal[2]]);
-          }
+        const normal: Vertex = [
+          u[1] * v[2] - u[2] * v[1],
+          u[2] * v[0] - u[0] * v[2],
+          u[0] * v[1] - u[1] * v[0],
+        ];
+        const normals = vertexNormals.get(zone)!;
+        for (const vertex of [a, b, c]) {
+          const sum = normals.get(vertex) ?? [0, 0, 0];
+          normals.set(vertex, [sum[0] + normal[0], sum[1] + normal[1], sum[2] + normal[2]]);
+        }
         const magnitude = Math.hypot(...normal) || 1;
         return normal.map((value) => value / magnitude) as Vertex;
       });
       mesh.forEach((triangle, index) => {
         const { a, b, c, zone, shade } = triangle;
         const faceNormal = faceNormals[index]!;
-        const color = surfaceColors[zone].map((value) => value * (0.99 + shade * 0.02)) as Vertex;
+        const color = surfaceColors[zone].map((value) => value * (0.97 + shade * 0.06)) as Vertex;
         for (const vertex of [a, b, c]) {
-          const average = zone === "face" ? faceNormal : vertexNormals.get(vertex)!;
+          const average = vertexNormals.get(zone)!.get(vertex)!;
           const magnitude = Math.hypot(...average) || 1;
           const normal = average.map(
-            (value, axis) => (value / magnitude) * 0.88 + faceNormal[axis]! * 0.12,
+            (value, axis) => (value / magnitude) * 0.62 + faceNormal[axis]! * 0.38,
           ) as Vertex;
           append(surface, vertex, normal, color, zoneIndex[zone]);
         }
@@ -313,6 +430,9 @@ function createScene(canvas: HTMLCanvasElement): Scene | null {
       gl.uniformMatrix3fv(uniforms.rotation, false, rotation);
       gl.uniform3f(uniforms.center, 0, h / 2, l / 2);
       gl.uniform3f(uniforms.projection, scale / aspect, scale, 0.8 / Math.max(w + h + l, 1));
+      gl.uniform1f(uniforms.rockScale, 1 / Math.min(w, h));
+      gl.uniform1f(uniforms.back, l);
+      gl.uniform1f(uniforms.crownStart, Math.max(0, h - w / 2) / Math.min(w, h));
       gl.uniform1f(uniforms.selected, selected === null ? -1 : zoneIndex[selected]);
       gl.uniform1f(uniforms.unlit, 1);
       bind(2);
@@ -360,6 +480,10 @@ export function PilotoLabor3D({
     if (!canvas) return;
     const lost = (event: Event) => {
       event.preventDefault();
+      // A restored context cannot reuse the old GPU program or buffers.
+      // Clear the scene immediately so resize callbacks cannot draw with stale handles.
+      sceneRef.current?.dispose();
+      sceneRef.current = null;
       setSupported(false);
     };
     const restored = () => setContextVersion((value) => value + 1);
@@ -603,8 +727,9 @@ export function PilotoLabor3D({
           id="model-help"
           className="px-4 pb-4 pt-3 text-[10px] leading-relaxed text-muted-foreground sm:px-5"
         >
-          Geometría ilustrativa a partir de las medidas de labor. Hastiales, corona y tope, sin
-          piso. No es un levantamiento fotogramétrico ni modifica la cubicación.
+          Geometría y textura de roca ilustrativas a partir de las medidas de labor. Hastiales,
+          corona y tope, sin piso. El relieve es visual: no es un levantamiento fotogramétrico ni
+          modifica la cubicación.
           {alto < width / 2 &&
             " La herradura se representa con una altura mínima igual a la mitad del ancho; las medidas indicadas corresponden a la entrada."}
         </p>
