@@ -92,6 +92,7 @@ function PhotoThumbnail({
 }
 
 export function Fotogrametria() {
+  const [denseMode, setDenseMode] = useState(true);
   const [name, setName] = useState("");
   const [photos, setPhotos] = useState<SurveyPhoto[]>([]);
   const [result, setResult] = useState<ReconstructionResult | null>(null);
@@ -208,7 +209,6 @@ export function Fotogrametria() {
     if (busy || photos.length < 3) return;
     setProcessing(true);
     setMessage("");
-    setResult(null);
     setProgress({ percent: 0, message: "Preparando el motor de reconstrucción…" });
     const controller = new AbortController();
     abort.current = controller;
@@ -218,6 +218,7 @@ export function Fotogrametria() {
       const next = await reconstructPhotos(
         photos.map((photo) => new File([photo.blob], photo.name, { type: photo.blob.type })),
         {
+          dense: denseMode,
           signal: controller.signal,
           onProgress: (update) => {
             if (mounted.current) setProgress(update);
@@ -255,6 +256,7 @@ export function Fotogrametria() {
       labor: name || "Sin nombre",
       fecha: new Date().toISOString(),
       motor: result.engine,
+      profundidad: result.dense,
       fotosRegistradas: result.registeredViews,
       fotosTotales: result.totalViews,
       puntos: result.points.length,
@@ -279,7 +281,7 @@ export function Fotogrametria() {
         <div>
           <p className="eyebrow mb-2 text-primary">02 / FOTOGRAMETRÍA</p>
           <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-            De tus fotos a puntos 3D
+            Reconstrucción densa local
           </h2>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
             Añade fotos de una misma zona. Reconstruye y guarda el resultado en tu dispositivo.
@@ -289,6 +291,32 @@ export function Fotogrametria() {
           Procesamiento local · Fotos privadas
         </span>
       </header>
+      <fieldset disabled={busy} className="rounded-2xl border border-white/10 bg-card p-4">
+        <legend className="px-2 text-sm font-medium">Motor de reconstrucción</legend>
+        <label className="mr-6 inline-flex min-h-12 items-center gap-2 text-sm">
+          <input
+            type="radio"
+            name="engine"
+            checked={denseMode}
+            onChange={() => setDenseMode(true)}
+          />{" "}
+          Profundidad densa · Experimental
+        </label>
+        <label className="inline-flex min-h-12 items-center gap-2 text-sm">
+          <input
+            type="radio"
+            name="engine"
+            checked={!denseMode}
+            onChange={() => setDenseMode(false)}
+          />{" "}
+          Puntos iniciales · Motor anterior
+        </label>
+        <p className="mt-2 text-sm text-muted-foreground">
+          La opción densa compara regiones de las fotos y fusiona profundidad. Puede tardar varios
+          minutos. Trabaja por tramos cortos; ninguna opción reconstruye zonas ocultas o sin
+          correspondencias fiables.
+        </p>
+      </fieldset>
       <div className="rounded-2xl border border-white/10 bg-card p-4 sm:p-6">
         <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
           <label className="block w-full max-w-sm text-sm font-medium">
@@ -456,7 +484,10 @@ export function Fotogrametria() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="mb-1 flex items-center gap-2 text-sm text-primary">
-                <Check className="size-4" /> Reconstrucción terminada
+                <Check className="size-4" />{" "}
+                {processing
+                  ? "Resultado anterior · Nuevo cálculo en curso"
+                  : "Reconstrucción terminada"}
               </p>
               <h3 className="text-xl font-semibold">{name || "Resultado del recorrido"}</h3>
             </div>
@@ -483,12 +514,23 @@ export function Fotogrametria() {
             </div>
             <div className="col-span-2 rounded-xl bg-card p-4 sm:col-span-1">
               <p className="text-xs text-muted-foreground">Tipo de resultado</p>
-              <p className="mt-1 text-base font-medium">Nube de puntos · Sin malla</p>
+              <p className="mt-1 text-base font-medium">
+                {result.dense ? "Profundidad densa · Sin malla" : "Puntos iniciales · Sin malla"}
+              </p>
             </div>
           </div>
+          {result.dense && (
+            <p className="rounded-xl bg-card p-4 text-sm text-muted-foreground">
+              {result.dense.pairs} pares procesados ·{" "}
+              {result.dense.accepted.toLocaleString("es-PE")} píxeles con profundidad aceptada de{" "}
+              {result.dense.candidates.toLocaleString("es-PE")} candidatos. Esta cifra no mide el
+              porcentaje de la labor levantado. Los huecos se conservan.
+            </p>
+          )}
           <ReconstructionViewer
             key={result.elapsedMs + ":" + result.points.length}
             points={result.points}
+            dense={!!result.dense}
             fileName={name || "levantamiento"}
           />
           <details className="rounded-xl border border-white/10 bg-card p-4">
@@ -497,8 +539,9 @@ export function Fotogrametria() {
             </summary>
             <div className="mt-3 space-y-2 text-sm leading-relaxed text-muted-foreground">
               <p>
-                Error de reproyección: {result.reprojectionError.toFixed(2)} px. Mide el ajuste a
-                las imágenes, no la exactitud en metros.
+                Error de reproyección de las cámaras iniciales:{" "}
+                {result.reprojectionError.toFixed(2)} px. Mide el ajuste a las imágenes, no la
+                exactitud en metros.
               </p>
               <p>
                 La cámara se estima a partir de las imágenes. El resultado tiene escala relativa

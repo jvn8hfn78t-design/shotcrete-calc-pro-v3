@@ -25,7 +25,7 @@ export function reconstructionPly(
   const header = [
     "ply",
     "format ascii 1.0",
-    "comment Shotcrete Calc Pro - reconstructed sparse point cloud",
+    "comment Shotcrete Calc Pro - reconstructed point cloud",
     reference
       ? "comment units meters; scale supplied manually; not survey certified"
       : "comment units relative; no metric scale",
@@ -60,9 +60,11 @@ export function reconstructionPly(
 export function ReconstructionViewer({
   points,
   fileName = "levantamiento",
+  dense = false,
 }: {
   points: ReconstructionPoint[];
   fileName?: string;
+  dense?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const projections = useRef<ProjectedPoint[]>([]);
@@ -88,20 +90,27 @@ export function ReconstructionViewer({
       ),
     [points],
   );
+  // Keep the principal cloud readable even when a few depth outliers are far away.
+  // This only changes the framing; every point remains in the PLY and scale controls.
   const bounds = useMemo(() => {
-    const center = cloud.reduce(
-      (sum, p) => ({
-        x: sum.x + p.x / cloud.length,
-        y: sum.y + p.y / cloud.length,
-        z: sum.z + p.z / cloud.length,
-      }),
-      { x: 0, y: 0, z: 0 },
-    );
-    let radius = 0;
-    for (const p of cloud)
-      radius = Math.max(radius, Math.hypot(p.x - center.x, p.y - center.y, p.z - center.z));
-    return { center, radius: Math.max(radius, 0.000001) };
+    const coordinate = (key: "x" | "y" | "z") => {
+      const values = cloud.map((point) => point[key]).sort((a, b) => a - b);
+      return values[Math.floor(values.length / 2)] ?? 0;
+    };
+    const center = { x: coordinate("x"), y: coordinate("y"), z: coordinate("z") };
+    const radii = cloud
+      .map((p) => Math.hypot(p.x - center.x, p.y - center.y, p.z - center.z))
+      .sort((a, b) => a - b);
+    return { center, radius: Math.max(radii[Math.floor(radii.length * 0.95)] ?? 0, 0.000001) };
   }, [cloud]);
+  const visibleIndices = useMemo(() => {
+    const count = Math.min(cloud.length, 75000);
+    return Array.from({ length: count }, (_, i) => Math.floor((i * cloud.length) / count));
+  }, [cloud]);
+  const colors = useMemo(
+    () => cloud.map((p) => `rgb(${channel(p.r)}, ${channel(p.g)}, ${channel(p.b)})`),
+    [cloud],
+  );
   const current = useRef({ camera, pointA, pointB, picking });
   current.current = { camera, pointA, pointB, picking };
 
@@ -153,8 +162,12 @@ export function ReconstructionViewer({
         cp = Math.cos(pitch),
         sp = Math.sin(pitch);
       const scale = (Math.min(width, height) * 0.4 * view.zoom) / bounds.radius;
-      const projected = cloud
-        .map((p, index) => {
+      const indices = [...visibleIndices];
+      for (const index of [a, b])
+        if (index !== null && !indices.includes(index)) indices.push(index);
+      const projected = indices
+        .map((index) => {
+          const p = cloud[index]!;
           const x = p.x - bounds.center.x,
             y = p.y - bounds.center.y,
             z = p.z - bounds.center.z;
@@ -172,8 +185,7 @@ export function ReconstructionViewer({
       const size = cloud.length > 10000 ? 1.7 : cloud.length > 1500 ? 2.2 : 3;
       for (const p of projected) {
         if (p.x < -10 || p.x > width + 10 || p.y < -10 || p.y > height + 10) continue;
-        const color = cloud[p.index]!;
-        context.fillStyle = `rgb(${channel(color.r)}, ${channel(color.g)}, ${channel(color.b)})`;
+        context.fillStyle = colors[p.index]!;
         context.fillRect(p.x - size / 2, p.y - size / 2, size, size);
       }
       const first = projected.find((p) => p.index === a),
@@ -218,7 +230,7 @@ export function ReconstructionViewer({
       cancelAnimationFrame(frame);
       canvas.removeEventListener("reconstruction-redraw", schedule);
     };
-  }, [cloud, bounds]);
+  }, [cloud, bounds, visibleIndices, colors]);
   useEffect(() => {
     canvasRef.current?.dispatchEvent(new Event("reconstruction-redraw"));
   }, [camera, pointA, pointB]);
@@ -281,6 +293,11 @@ export function ReconstructionViewer({
           {reference ? "Escala manual · metros" : "Escala relativa"}
         </span>
       </div>
+      {cloud.length > visibleIndices.length && (
+        <p className="text-xs text-muted-foreground">
+          Vista aligerada a 75 000 puntos para facilitar el giro. El PLY conserva todos los puntos.
+        </p>
+      )}
       <div className="relative overflow-hidden rounded-xl bg-[#0a1016]">
         <canvas
           ref={canvasRef}
@@ -411,7 +428,8 @@ export function ReconstructionViewer({
         </button>
       </div>
       <p className="text-sm leading-relaxed text-muted-foreground">
-        Nube de puntos dispersa. Los huecos son zonas sin reconstruir.{" "}
+        {dense ? "Nube de profundidad densa." : "Nube de puntos dispersa."} Los huecos son zonas sin
+        reconstruir.{" "}
         {reference
           ? "La escala depende de los puntos elegidos y de la distancia indicada; no certifica precisión topográfica."
           : "Para exportar en metros, añade una distancia conocida entre dos puntos."}

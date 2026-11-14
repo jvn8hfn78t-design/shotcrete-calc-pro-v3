@@ -404,6 +404,9 @@ export function reconstructImages(
     progress({ percent: 100, message: "Reconstrucción de puntos completada." });
     return {
       points,
+      cameras: frames.flatMap((frame, imageIndex) =>
+        frame.pose ? [{ imageIndex, focal: frame.focal, pose: frame.pose }] : [],
+      ),
       registeredViews,
       totalViews: images.length,
       reprojectionError: median(valid.flatMap((t) => t.errors)),
