@@ -5,10 +5,10 @@ type Zone = "left" | "right" | "crown" | "face";
 type Vertex = [number, number, number];
 type Triangle = { a: Vertex; b: Vertex; c: Vertex; zone: Zone; shade: number };
 const zones: { id: Zone; name: string; color: string }[] = [
-  { id: "left", name: "Hastial izquierdo", color: "#879da0" },
-  { id: "crown", name: "Corona", color: "#d1ae75" },
-  { id: "right", name: "Hastial derecho", color: "#657d86" },
-  { id: "face", name: "Tope", color: "#b48b65" },
+  { id: "left", name: "Hastial izquierdo", color: "#8e8579" },
+  { id: "crown", name: "Corona", color: "#50483e" },
+  { id: "right", name: "Hastial derecho", color: "#77736c" },
+  { id: "face", name: "Tope", color: "#a59b8b" },
 ];
 const noise = (a: number, b: number, c: number) => {
   const n = Math.sin(a * 127.1 + b * 311.7 + c * 74.7) * 43758.5453;
@@ -16,64 +16,98 @@ const noise = (a: number, b: number, c: number) => {
 };
 
 function createMesh(width: number, height: number, length: number): Triangle[] {
-  const r = width / 2;
-  const wall = Math.max(0, height - r);
-  const segments = 40;
-  const rows = 25;
-  const wallParts = 10;
-  const crownParts = 20;
-  const profile = (i: number): [number, number, Zone] => {
-    if (i <= wallParts) return [-r, (wall * i) / wallParts, "left"];
-    if (i <= wallParts + crownParts) {
-      const t = (i - wallParts) / crownParts;
-      return [-r * Math.cos(Math.PI * t), wall + r * Math.sin(Math.PI * t), "crown"];
+  const radius = width / 2;
+  const wall = Math.max(0, height - radius);
+  const wallParts = 18;
+  const crownParts = 36;
+  const segments = wallParts * 2 + crownParts;
+  const rows = 52;
+  const reliefScale = Math.min(width, height);
+  const profile = (index: number): [number, number, Zone, number, number] => {
+    if (index <= wallParts)
+      return [-radius, (wall * index) / wallParts, "left", -1, 0];
+    if (index <= wallParts + crownParts) {
+      const angle = (Math.PI * (index - wallParts)) / crownParts;
+      return [
+        -radius * Math.cos(angle),
+        wall + radius * Math.sin(angle),
+        "crown",
+        -Math.cos(angle),
+        Math.sin(angle),
+      ];
     }
-    return [r, wall * (1 - (i - wallParts - crownParts) / wallParts), "right"];
+    return [
+      radius,
+      wall * (1 - (index - wallParts - crownParts) / wallParts),
+      "right",
+      1,
+      0,
+    ];
   };
+  const relief = (u: number, v: number) =>
+    reliefScale *
+    (0.022 * Math.sin(u * 0.48 + Math.sin(v * 0.23) * 0.8) * Math.cos(v * 0.37 - u * 0.14) +
+      0.010 * Math.sin(u * 1.29 + v * 0.97) * Math.cos(u * 0.73 - v * 0.79) +
+      0.010 * (noise(u, v, 1) - 0.5));
+
   const shell: Vertex[][] = [];
-  for (let k = 0; k <= rows; k++) {
-    const line: Vertex[] = [];
-    for (let j = 0; j <= segments; j++) {
-      const [x, y] = profile(j);
-      const displacement = (noise(j, k, 1) - 0.5) * Math.min(width, height) * 0.038;
-      const sign = x < 0 ? -1 : 1;
-      line.push([x + displacement * sign, y + displacement * 0.4, (length * k) / rows]);
+  for (let step = 0; step <= rows; step++) {
+    const ring: Vertex[] = [];
+    for (let index = 0; index <= segments; index++) {
+      const [x, y, , nx, ny] = profile(index);
+      const uneven = relief(index, step);
+      ring.push([
+        x + nx * uneven,
+        y + ny * uneven + reliefScale * 0.003 * (noise(index, step, 8) - 0.5),
+        (length * step) / rows + reliefScale * 0.004 * (noise(index, step, 9) - 0.5),
+      ]);
     }
-    shell.push(line);
+    shell.push(ring);
   }
-  const tris: Triangle[] = [];
-  const push = (a: Vertex, b: Vertex, c: Vertex, zone: Zone, shade: number) =>
-    tris.push({ a, b, c, zone, shade });
-  for (let k = 0; k < rows; k++) {
-    for (let j = 0; j < segments; j++) {
-      const zone = profile(j)[2];
-      const a = shell[k]![j]!,
-        b = shell[k + 1]![j]!,
-        c = shell[k + 1]![j + 1]!,
-        d = shell[k]![j + 1]!;
-      push(a, b, c, zone, noise(j, k, 4));
-      push(a, c, d, zone, noise(j, k, 5));
+
+  const triangles: Triangle[] = [];
+  const add = (a: Vertex, b: Vertex, c: Vertex, zone: Zone, shade: number) =>
+    triangles.push({ a, b, c, zone, shade });
+
+  for (let step = 0; step < rows; step++) {
+    for (let index = 0; index < segments; index++) {
+      const zone = profile(index)[2];
+      const a = shell[step]![index]!;
+      const b = shell[step + 1]![index]!;
+      const c = shell[step + 1]![index + 1]!;
+      const d = shell[step]![index + 1]!;
+      add(a, b, c, zone, noise(index, step, 4));
+      add(a, c, d, zone, noise(index, step, 5));
     }
   }
-  // Tope de herradura cerrado, con triangulación regular y relieve leve.
-  // El borde inferior se cierra únicamente en el tope; no existe malla de piso.
-  const center: Vertex = [0, height * 0.49, length];
-  const middle: Vertex[] = [];
-  for (let j = 0; j <= segments; j++) {
-    const [x, y] = profile(j);
-    middle.push([
-      x * 0.5,
-      height * 0.49 + (y - height * 0.49) * 0.5,
-      length + (noise(j, 9, 2) - 0.5) * 0.015,
-    ]);
+
+  // The tunnel face is filled by successive rocky rings. There is no floor mesh.
+  const middleHeight = height * 0.49;
+  let outer = shell[rows]!;
+  for (let band = 1; band <= 6; band++) {
+    const fraction = 1 - band / 7;
+    const inner: Vertex[] = [];
+    for (let index = 0; index <= segments; index++) {
+      const [x, y] = profile(index);
+      const faceX = x * fraction;
+      const faceY = middleHeight + (y - middleHeight) * fraction;
+      const faceRelief =
+        reliefScale *
+        (0.023 * Math.sin(faceX * 5.2 + faceY * 4.9) * Math.cos(faceY * 3.4 - faceX * 4.1) +
+          0.013 * (noise(index, band, 12) - 0.5));
+      inner.push([faceX, faceY, length + faceRelief * (1 - fraction * 0.35)]);
+    }
+    for (let index = 0; index < segments; index++) {
+      add(outer[index]!, outer[index + 1]!, inner[index + 1]!, "face", noise(index, band, 4));
+      add(outer[index]!, inner[index + 1]!, inner[index]!, "face", noise(index, band, 5));
+    }
+    outer = inner;
   }
-  for (let j = 0; j < segments; j++) {
-    push(shell[rows]![j]!, shell[rows]![j + 1]!, middle[j + 1]!, "face", noise(j, 7, 1));
-    push(shell[rows]![j]!, middle[j + 1]!, middle[j]!, "face", noise(j, 7, 2));
-    push(middle[j]!, middle[j + 1]!, center, "face", noise(j, 7, 3));
-  }
-  push([-r, 0, length], [r, 0, length], center, "face", 0.5);
-  return tris;
+  const center: Vertex = [0, middleHeight, length + reliefScale * 0.005];
+  for (let index = 0; index < segments; index++)
+    add(outer[index]!, outer[index + 1]!, center, "face", noise(index, 21, 3));
+  add(shell[rows]![0]!, shell[rows]![segments]!, center, "face", 0.6);
+  return triangles;
 }
 
 type Camera = { yaw: number; pitch: number; zoom: number };
@@ -82,13 +116,13 @@ type Scene = {
   draw: (camera: Camera, selected: Zone | null) => void;
   dispose: () => void;
 };
-const DEFAULT_CAMERA: Camera = { yaw: -22, pitch: 14, zoom: 1 };
+const DEFAULT_CAMERA: Camera = { yaw: -25, pitch: 12, zoom: 1.08 };
 const zoneIndex: Record<Zone, number> = { left: 0, crown: 1, right: 2, face: 3 };
 const surfaceColors: Record<Zone, Vertex> = {
-  left: [0.44, 0.56, 0.59],
-  crown: [0.61, 0.56, 0.45],
-  right: [0.37, 0.49, 0.55],
-  face: [0.54, 0.45, 0.36],
+  left: [0.59, 0.56, 0.52],
+  crown: [0.35, 0.33, 0.30],
+  right: [0.52, 0.50, 0.47],
+  face: [0.70, 0.66, 0.60],
 };
 
 /** One GPU program per mounted viewer. Dragging only updates uniforms. */
@@ -119,12 +153,14 @@ function createScene(canvas: HTMLCanvasElement): Scene | null {
     varying vec3 vNormal;
     varying vec3 vColor;
     varying float vZone;
+    varying vec3 vPosition;
     void main() {
       vec3 p = uRotation * (aPosition - uCenter);
       gl_Position = vec4(p * uProjection, 1.0);
       vNormal = uRotation * aNormal;
       vColor = aColor;
       vZone = aZone;
+      vPosition = aPosition;
     }`,
   );
   let fs: WebGLShader;
@@ -136,17 +172,26 @@ function createScene(canvas: HTMLCanvasElement): Scene | null {
       varying vec3 vNormal;
       varying vec3 vColor;
       varying float vZone;
+      varying vec3 vPosition;
       uniform float uSelected;
       uniform float uUnlit;
+      float rockHash(vec3 p) {
+        return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453);
+      }
       void main() {
         vec3 n = normalize(vNormal + vec3(0.00001));
-        float key = abs(dot(n, normalize(vec3(-0.4, 0.7, -0.9))));
-        float fill = abs(dot(n, normalize(vec3(0.8, 0.1, -0.3))));
-        float lighting = mix(0.54 + key * 0.30 + fill * 0.10, 1.0, uUnlit);
+        float key = abs(dot(n, normalize(vec3(-0.48, 0.72, -0.8))));
+        float fill = abs(dot(n, normalize(vec3(0.72, 0.24, 0.55))));
+        float lighting = mix(0.59 + key * 0.32 + fill * 0.12, 1.0, uUnlit);
+        float coarse = rockHash(floor(vPosition * 20.0));
+        float grain = rockHash(floor(vPosition * 65.0));
+        float strata = sin(vPosition.y * 16.0 + sin(vPosition.x * 7.0 + vPosition.z * 4.0) * 2.0);
+        float fissure = pow(max(0.0, sin(vPosition.x * 19.0 + vPosition.y * 14.0 - vPosition.z * 11.0)), 12.0);
+        float variation = (coarse - 0.5) * 0.17 + (grain - 0.5) * 0.12 + strata * 0.045 - fissure * 0.10;
         float active = 1.0 - step(0.25, abs(vZone - uSelected));
         float hasSelection = step(-0.5, uSelected) * (1.0 - uUnlit);
-        vec3 color = vColor * lighting;
-        color = mix(color, mix(color * 0.30, min(color * 1.25 + vec3(0.08, 0.06, 0.02), 1.0), active), hasSelection);
+        vec3 color = clamp(vColor * (lighting + variation), 0.025, 1.0);
+        color = mix(color, mix(color * 0.35, min(color * 1.15 + vec3(0.05, 0.04, 0.02), 1.0), active), hasSelection);
         gl_FragColor = vec4(color, 1.0);
       }`,
     );
@@ -227,10 +272,16 @@ function createScene(canvas: HTMLCanvasElement): Scene | null {
       const faceNormals = mesh.map(({ a, b, c, zone }) => {
         const u: Vertex = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
         const v: Vertex = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
-        const normal: Vertex =
-          zone === "face"
-            ? [0, 0, -1]
-            : [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+        const normal: Vertex = [
+          u[1] * v[2] - u[2] * v[1],
+          u[2] * v[0] - u[0] * v[2],
+          u[0] * v[1] - u[1] * v[0],
+        ];
+        if (zone === "face" && normal[2] > 0) {
+          normal[0] = -normal[0];
+          normal[1] = -normal[1];
+          normal[2] = -normal[2];
+        }
         if (zone !== "face")
           for (const vertex of [a, b, c]) {
             const sum = vertexNormals.get(vertex) ?? [0, 0, 0];
@@ -242,12 +293,12 @@ function createScene(canvas: HTMLCanvasElement): Scene | null {
       mesh.forEach((triangle, index) => {
         const { a, b, c, zone, shade } = triangle;
         const faceNormal = faceNormals[index]!;
-        const color = surfaceColors[zone].map((value) => value * (0.99 + shade * 0.02)) as Vertex;
+        const color = surfaceColors[zone].map((value) => value * (0.82 + shade * 0.34)) as Vertex;
         for (const vertex of [a, b, c]) {
           const average = zone === "face" ? faceNormal : vertexNormals.get(vertex)!;
           const magnitude = Math.hypot(...average) || 1;
           const normal = average.map(
-            (value, axis) => (value / magnitude) * 0.88 + faceNormal[axis]! * 0.12,
+            (value, axis) => (value / magnitude) * 0.64 + faceNormal[axis]! * 0.36,
           ) as Vertex;
           append(surface, vertex, normal, color, zoneIndex[zone]);
         }
@@ -292,7 +343,7 @@ function createScene(canvas: HTMLCanvasElement): Scene | null {
         canvas.height = height;
       }
       gl.viewport(0, 0, width, height);
-      gl.clearColor(0.036, 0.055, 0.073, 1);
+      gl.clearColor(0.955, 0.95, 0.94, 1);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       gl.useProgram(program);
       gl.enable(gl.DEPTH_TEST);
@@ -314,18 +365,12 @@ function createScene(canvas: HTMLCanvasElement): Scene | null {
       gl.uniform3f(uniforms.center, 0, h / 2, l / 2);
       gl.uniform3f(uniforms.projection, scale / aspect, scale, 0.8 / Math.max(w + h + l, 1));
       gl.uniform1f(uniforms.selected, selected === null ? -1 : zoneIndex[selected]);
-      gl.uniform1f(uniforms.unlit, 1);
-      bind(2);
-      gl.drawArrays(gl.LINES, 0, counts[2]);
       gl.uniform1f(uniforms.unlit, 0);
       gl.enable(gl.POLYGON_OFFSET_FILL);
       gl.polygonOffset(1, 1);
       bind(0);
       gl.drawArrays(gl.TRIANGLES, 0, counts[0]);
       gl.disable(gl.POLYGON_OFFSET_FILL);
-      gl.uniform1f(uniforms.unlit, 1);
-      bind(1);
-      gl.drawArrays(gl.LINES, 0, counts[1]);
     },
     dispose() {
       buffers.forEach((buffer) => gl.deleteBuffer(buffer));
@@ -420,17 +465,17 @@ export function PilotoLabor3D({
             <span className="size-1.5 rounded-full bg-primary" /> Modelo referencial
           </span>
         </div>
-        <div className="relative mx-2 overflow-hidden rounded-xl bg-[#09121a] ring-1 ring-white/[0.05] sm:mx-3">
-          <div className="pointer-events-none absolute left-4 top-4 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-[#8da1ae]">
+        <div className="relative mx-2 overflow-hidden rounded-xl bg-[#f4f2ee] ring-1 ring-white/[0.08] sm:mx-3">
+          <div className="pointer-events-none absolute left-4 top-4 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-[#5f5b54]">
             <span className="h-2 w-2 rounded-sm border border-[#8da1ae]/50" />{" "}
             {selected ? zones.find((zone) => zone.id === selected)?.name : "Vista de superficies"}
           </div>
           <div
-            className="absolute right-3 top-3 flex rounded-lg bg-[#16222b] p-1 ring-1 ring-white/[0.07]"
+            className="absolute right-3 top-3 flex rounded-lg bg-white/85 p-1 ring-1 ring-black/10"
             aria-label="Vistas del modelo"
           >
             {[
-              { name: "3D", title: "Vista tridimensional", yaw: -22, pitch: 14 },
+              { name: "3D", title: "Vista tridimensional", yaw: -25, pitch: 12 },
               { name: "Frente", title: "Vista frontal", yaw: 0, pitch: 0 },
             ].map((view) => (
               <button
@@ -439,7 +484,7 @@ export function PilotoLabor3D({
                 aria-label={view.title}
                 aria-pressed={camera.yaw === view.yaw && camera.pitch === view.pitch}
                 onClick={() => setCamera({ yaw: view.yaw, pitch: view.pitch, zoom: 1 })}
-                className={`min-h-10 rounded-md px-3 text-[11px] font-semibold transition-colors ${camera.yaw === view.yaw && camera.pitch === view.pitch ? "bg-white/10 text-white" : "text-[#92a5b3] hover:text-white"}`}
+                className={`min-h-10 rounded-md px-3 text-[11px] font-semibold transition-colors ${camera.yaw === view.yaw && camera.pitch === view.pitch ? "bg-stone-800 text-white" : "text-stone-600 hover:text-stone-900"}`}
               >
                 {view.name}
               </button>
@@ -527,11 +572,11 @@ export function PilotoLabor3D({
               El visor 3D no está disponible en este dispositivo. Los cálculos siguen funcionando.
             </p>
           )}
-          <div className="pointer-events-none absolute bottom-4 left-4 text-[10px] font-medium tracking-wide text-[#8da1ae]">
-            Arrastra para explorar <span className="mx-1.5 text-[#435766]">/</span> Sin piso
+          <div className="pointer-events-none absolute bottom-4 left-4 text-[10px] font-medium tracking-wide text-[#5f5b54]">
+            Arrastra para explorar <span className="mx-1.5 text-[#a8a096]">/</span> Sin piso
           </div>
           <div
-            className="pointer-events-none absolute bottom-4 right-4 flex items-center gap-1.5 text-[9px] font-semibold text-[#8295a2]"
+            className="pointer-events-none absolute bottom-4 right-4 flex items-center gap-1.5 text-[9px] font-semibold text-[#6a645c]"
             aria-hidden="true"
           >
             <span className="h-px w-5 bg-[#b99561]" /> A{" "}
